@@ -16,7 +16,7 @@ fn main() -> Result<(), eframe::Error> {
 
 #[derive(Default)]
 struct MyApp {
-    picked_path: PathBuf,
+    diff: Option<String>,
 }
 
 impl eframe::App for MyApp {
@@ -24,31 +24,38 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             if ui.button("Open project...").clicked() {
                 if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    get_diffs(path.clone());
-                    self.picked_path = path;
+                    self.diff = Some(get_diff(path.clone()));
                 }
+            }
+
+            if let Some(diff) = &self.diff {
+                ui.label(diff);
             }
         });
     }
 }
 
-fn get_diffs(path: PathBuf) {
+fn get_diff(path: PathBuf) -> String {
     let repo = Repository::open(path).expect("Error opening repository");
     let diff = repo
         .diff_index_to_workdir(None, None)
         .expect("Error getting diff");
+
+    let mut result = String::new();
 
     diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
         let content = std::str::from_utf8(line.content()).unwrap();
         let origin = line.origin();
 
         match origin {
-            '+' => print!("{origin}{content}"),
-            '-' => print!("{origin}{content}"),
-            _ => print!("{content}"),
+            '+' => result.push_str(format!("{origin}{content}").as_str()),
+            '-' => result.push_str(format!("{origin}{content}").as_str()),
+            _ => result.push_str(format!("{content}").as_str()),
         }
 
         true
     })
     .unwrap();
+
+    result
 }
