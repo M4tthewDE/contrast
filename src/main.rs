@@ -42,6 +42,8 @@ fn get_diff(path: PathBuf) -> String {
         .expect("Error getting diff");
 
     let mut result = String::new();
+    diff.foreach(&mut file_cb, Some(&mut binary_cb), Some(&mut hunk_cb), None)
+        .unwrap();
 
     diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
         let content = std::str::from_utf8(line.content()).unwrap();
@@ -58,4 +60,21 @@ fn get_diff(path: PathBuf) -> String {
     .unwrap();
 
     result
+}
+
+fn file_cb(delta: git2::DiffDelta, num: f32) -> bool {
+    true
+}
+
+fn binary_cb(delta: git2::DiffDelta, binary: git2::DiffBinary) -> bool {
+    true
+}
+
+// THE INFORMATION IS THERE, JUST NEED TO PARSE IT
+fn hunk_cb(delta: git2::DiffDelta, binary: git2::DiffHunk) -> bool {
+    let header = std::str::from_utf8(binary.header()).unwrap();
+    println!("{:?}", delta.old_file());
+    println!("{:?}", delta.new_file());
+    println!("{header}");
+    true
 }
