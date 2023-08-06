@@ -1,57 +1,35 @@
+use git2::Repository;
 use std::path::PathBuf;
 
-use git2::Repository;
-use gtk::gio::Cancellable;
-use gtk::{glib, Application, ApplicationWindow, Button};
-use gtk::{prelude::*, FileDialog};
+use eframe::egui;
 
-const APP_ID: &str = "com.github.m4tthewde.Contrast";
-const APP_TITLE: &str = "Contrast";
+fn main() -> Result<(), eframe::Error> {
+    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
-fn main() -> glib::ExitCode {
-    // Create a new application
-    let app = Application::builder().application_id(APP_ID).build();
+    let options = eframe::NativeOptions {
+        initial_window_size: Some(egui::vec2(320.0, 240.0)),
+        ..Default::default()
+    };
 
-    // Connect to "activate" signal of `app`
-    app.connect_activate(build_ui);
-
-    // Run the application
-    app.run()
+    eframe::run_native("Contrast", options, Box::new(|_cc| Box::<MyApp>::default()))
 }
 
-fn build_ui(app: &Application) {
-    // Create a button with label and margins
-    let button = Button::builder()
-        .label("Select repository")
-        .margin_top(12)
-        .margin_bottom(12)
-        .margin_start(12)
-        .margin_end(12)
-        .build();
+#[derive(Default)]
+struct MyApp {
+    picked_path: PathBuf,
+}
 
-    let window = ApplicationWindow::builder()
-        .application(app)
-        .title(APP_TITLE)
-        .child(&button)
-        .build();
-
-    // Connect to "clicked" signal of `button`
-    button.connect_clicked(glib::clone!(@weak window => move |_| {
-            let dialog = FileDialog::builder().title("Select repository").build();
-            dialog.select_folder(Some(&window), Cancellable::NONE, move |folder| {
-                if let Ok(folder) = folder {
-                    let path = folder.path().expect("Error getting path");
-                    let diffs = get_diffs(path);
-                    println!("{:?}", diffs);
-                 }
-            })
-        }
-    ));
-
-    // Create a window and set the title
-
-    // Present window
-    window.present();
+impl eframe::App for MyApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            if ui.button("Open project...").clicked() {
+                if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                    get_diffs(path.clone());
+                    self.picked_path = path;
+                }
+            }
+        });
+    }
 }
 
 fn get_diffs(path: PathBuf) {
@@ -60,9 +38,16 @@ fn get_diffs(path: PathBuf) {
         .diff_index_to_workdir(None, None)
         .expect("Error getting diff");
 
-    diff.print(git2::DiffFormat::Patch, |delta, hunk, line| {
+    diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
         let content = std::str::from_utf8(line.content()).unwrap();
-        println!("{}", content);
+        let origin = line.origin();
+
+        match origin {
+            '+' => print!("{origin}{content}"),
+            '-' => print!("{origin}{content}"),
+            _ => print!("{content}"),
+        }
+
         true
     })
     .unwrap();

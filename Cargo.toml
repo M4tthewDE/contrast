@@ -6,5 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-gtk = { version = "0.7.1", package = "gtk4", features = ["v4_10"] }
+eframe = "0.22.0"
+egui = "0.22.0"
+env_logger = "0.10.0"
 git2 = "0.17.2"
+rfd = "0.11.4"
+
