@@ -1,9 +1,5 @@
-use git2::{Delta, DiffBinary, DiffDelta, DiffFile, DiffHunk, DiffLine, Repository};
-use std::{
-    cell::RefCell,
-    path::{Path, PathBuf},
-    rc::Rc,
-};
+use git2::{Delta, Repository};
+use std::{cell::RefCell, ops::AddAssign, path::PathBuf, rc::Rc};
 
 use eframe::egui;
 
@@ -94,24 +90,30 @@ fn get_diffs(path: PathBuf) -> Vec<Diff> {
         .diff_index_to_workdir(None, None)
         .expect("Error getting diff");
 
-    let mut result = Vec::new();
-    let headers = Rc::new(RefCell::new(Vec::new()));
+    let header_count = Rc::new(RefCell::new(Vec::new()));
 
     diffs
         .foreach(
             &mut |_delta, _num| {
-                if !headers.borrow().is_empty() {
-                    let diff = Diff::new(
-                        DiffStatus::from(_delta.status()),
-                        _delta.old_file().path().unwrap().to_path_buf(),
-                        _delta.new_file().path().unwrap().to_path_buf(),
-                        headers.borrow().clone(),
-                    );
-                    result.push(diff);
+                header_count.borrow_mut().push(0);
+                true
+            },
+            None,
+            Some(&mut |_delta, _hunk| {
+                header_count.borrow_mut().last_mut().unwrap().add_assign(1);
+                true
+            }),
+            None,
+        )
+        .unwrap();
 
-                    headers.borrow_mut().clear();
-                }
+    println!("HEADER_COUNT: {:?}", header_count);
 
+    let headers = Rc::new(RefCell::new(Vec::new()));
+    let mut result = Vec::new();
+    diffs
+        .foreach(
+            &mut |_delta, _num| {
                 println!("status: {:?}", _delta.status());
                 println!("old_file: {:?}", _delta.old_file().path());
                 println!("new_file: {:?}", _delta.new_file().path());
@@ -130,12 +132,26 @@ fn get_diffs(path: PathBuf) -> Vec<Diff> {
                     .borrow_mut()
                     .push(std::str::from_utf8(_hunk.header()).unwrap().to_string());
 
+                if headers.borrow().len() == *header_count.borrow().first().unwrap() {
+                    let diff = Diff::new(
+                        DiffStatus::from(_delta.status()),
+                        _delta.old_file().path().unwrap().to_path_buf(),
+                        _delta.new_file().path().unwrap().to_path_buf(),
+                        headers.borrow().clone(),
+                    );
+
+                    result.push(diff);
+                    headers.borrow_mut().clear();
+                    header_count.borrow_mut().remove(0);
+                }
+
                 true
             }),
             None,
         )
         .unwrap();
 
+    println!("--------------------------------");
     result
 }
 
