@@ -1,5 +1,9 @@
-use git2::Repository;
-use std::path::PathBuf;
+use git2::{Delta, DiffBinary, DiffDelta, DiffFile, DiffHunk, DiffLine, Repository};
+use std::{
+    cell::RefCell,
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 
 use eframe::egui;
 
@@ -16,7 +20,7 @@ fn main() -> Result<(), eframe::Error> {
 
 #[derive(Default)]
 struct MyApp {
-    diff: Option<String>,
+    picked_path: PathBuf,
 }
 
 impl eframe::App for MyApp {
@@ -24,57 +28,126 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             if ui.button("Open project...").clicked() {
                 if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    self.diff = Some(get_diff(path.clone()));
+                    get_diffs(path.clone());
+                    self.picked_path = path;
                 }
-            }
-
-            if let Some(diff) = &self.diff {
-                ui.label(diff);
             }
         });
     }
 }
 
-fn get_diff(path: PathBuf) -> String {
+#[derive(Debug)]
+enum DiffStatus {
+    Unmodified,
+    Added,
+    Deleted,
+    Modified,
+    Renamed,
+    Copied,
+    Ignored,
+    Untracked,
+    Typechange,
+    Unreadable,
+    Conflicted,
+}
+
+impl From<Delta> for DiffStatus {
+    fn from(delta: Delta) -> Self {
+        match delta {
+            Delta::Unmodified => DiffStatus::Unmodified,
+            Delta::Added => DiffStatus::Added,
+            Delta::Deleted => DiffStatus::Deleted,
+            Delta::Modified => DiffStatus::Modified,
+            Delta::Renamed => DiffStatus::Renamed,
+            Delta::Copied => DiffStatus::Copied,
+            Delta::Ignored => DiffStatus::Ignored,
+            Delta::Untracked => DiffStatus::Untracked,
+            Delta::Typechange => DiffStatus::Typechange,
+            Delta::Unreadable => DiffStatus::Unreadable,
+            Delta::Conflicted => DiffStatus::Conflicted,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Diff {
+    status: DiffStatus,
+    old_file: PathBuf,
+    new_file: PathBuf,
+    headers: Vec<String>,
+}
+
+impl Diff {
+    fn new(status: DiffStatus, old_file: PathBuf, new_file: PathBuf, headers: Vec<String>) -> Diff {
+        Diff {
+            status,
+            old_file,
+            new_file,
+            headers,
+        }
+    }
+}
+
+fn get_diffs(path: PathBuf) -> Vec<Diff> {
     let repo = Repository::open(path).expect("Error opening repository");
-    let diff = repo
+    let diffs = repo
         .diff_index_to_workdir(None, None)
         .expect("Error getting diff");
 
-    let mut result = String::new();
-    diff.foreach(&mut file_cb, Some(&mut binary_cb), Some(&mut hunk_cb), None)
+    let mut result = Vec::new();
+    let headers = Rc::new(RefCell::new(Vec::new()));
+
+    diffs
+        .foreach(
+            &mut |_delta, _num| {
+                if !headers.borrow().is_empty() {
+                    let diff = Diff::new(
+                        DiffStatus::from(_delta.status()),
+                        _delta.old_file().path().unwrap().to_path_buf(),
+                        _delta.new_file().path().unwrap().to_path_buf(),
+                        headers.borrow().clone(),
+                    );
+                    result.push(diff);
+
+                    headers.borrow_mut().clear();
+                }
+
+                println!("status: {:?}", _delta.status());
+                println!("old_file: {:?}", _delta.old_file().path());
+                println!("new_file: {:?}", _delta.new_file().path());
+
+                true
+            },
+            None,
+            Some(&mut |_delta, _hunk| {
+                println!("old_start: {:?}", _hunk.old_start());
+                println!("old_lines: {:?}", _hunk.old_lines());
+                println!("new_start: {:?}", _hunk.new_start());
+                println!("new_lines: {:?}", _hunk.new_lines());
+                println!("header: {:?}", std::str::from_utf8(_hunk.header()).unwrap());
+
+                headers
+                    .borrow_mut()
+                    .push(std::str::from_utf8(_hunk.header()).unwrap().to_string());
+
+                true
+            }),
+            None,
+        )
         .unwrap();
-
-    diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
-        let content = std::str::from_utf8(line.content()).unwrap();
-        let origin = line.origin();
-
-        match origin {
-            '+' => result.push_str(format!("{origin}{content}").as_str()),
-            '-' => result.push_str(format!("{origin}{content}").as_str()),
-            _ => result.push_str(format!("{content}").as_str()),
-        }
-
-        true
-    })
-    .unwrap();
 
     result
 }
 
-fn file_cb(delta: git2::DiffDelta, num: f32) -> bool {
-    true
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-fn binary_cb(delta: git2::DiffDelta, binary: git2::DiffBinary) -> bool {
-    true
-}
-
-// THE INFORMATION IS THERE, JUST NEED TO PARSE IT
-fn hunk_cb(delta: git2::DiffDelta, binary: git2::DiffHunk) -> bool {
-    let header = std::str::from_utf8(binary.header()).unwrap();
-    println!("{:?}", delta.old_file());
-    println!("{:?}", delta.new_file());
-    println!("{header}");
-    true
+    #[test]
+    fn it_works() {
+        let diffs = get_diffs(PathBuf::from("."));
+        for diff in diffs {
+            println!("{:?}", diff);
+        }
+    }
 }
