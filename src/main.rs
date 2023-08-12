@@ -18,6 +18,7 @@ fn main() -> Result<(), eframe::Error> {
 
 #[derive(Default)]
 struct MyApp {
+    project_path: PathBuf,
     diffs: Vec<Diff>,
     shown_diff: Option<Diff>,
 }
@@ -25,9 +26,12 @@ struct MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("Contrast - Diff Viewer");
             if ui.button("Open project...").clicked() {
                 if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                    self.project_path = path.clone();
                     self.diffs = get_diffs(path.clone());
+                    self.shown_diff = self.diffs.first().cloned().or(None);
                 }
             }
 
@@ -36,6 +40,8 @@ impl eframe::App for MyApp {
                     self.diffs = Vec::new();
                     self.shown_diff = None;
                 }
+
+                ui.heading(format!("Diff for {}", self.project_path.to_str().unwrap()));
 
                 for diff in &self.diffs {
                     if ui.button(diff.old_file.to_str().unwrap()).clicked() {
