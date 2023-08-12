@@ -1,4 +1,5 @@
 use core::fmt;
+use egui::{Color32, RichText, ScrollArea};
 use git2::{Delta, Repository};
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
@@ -18,6 +19,7 @@ fn main() -> Result<(), eframe::Error> {
 #[derive(Default)]
 struct MyApp {
     diffs: Vec<Diff>,
+    shown_diff: Option<Diff>,
 }
 
 impl eframe::App for MyApp {
@@ -32,17 +34,28 @@ impl eframe::App for MyApp {
             if !self.diffs.is_empty() {
                 if ui.button("Reset").clicked() {
                     self.diffs = Vec::new();
+                    self.shown_diff = None;
+                }
+
+                for diff in &self.diffs {
+                    if ui.button(diff.old_file.to_str().unwrap()).clicked() {
+                        self.shown_diff = Some(diff.clone());
+                    }
                 }
             }
 
-            for diff in &self.diffs {
-                ui.label(diff.to_string());
+            if let Some(diff) = self.shown_diff.clone() {
+                ScrollArea::vertical().show(ui, |ui| {
+                    for line in &diff.lines {
+                        ui.label(line.to_richtext());
+                    }
+                });
             }
         });
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum DiffStatus {
     Unmodified,
     Added,
@@ -75,7 +88,7 @@ impl From<Delta> for DiffStatus {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Diff {
     status: DiffStatus,
     old_file: PathBuf,
@@ -100,6 +113,10 @@ impl Diff {
             lines,
         }
     }
+
+    fn id_source(&self) -> String {
+        self.old_file.to_str().unwrap().to_string()
+    }
 }
 
 impl fmt::Display for Diff {
@@ -113,7 +130,7 @@ impl fmt::Display for Diff {
         .unwrap();
 
         for line in &self.lines {
-            write!(f, "{}{}", line.origin, line.content).unwrap();
+            write!(f, "{}", line).unwrap();
         }
 
         Ok(())
@@ -129,6 +146,26 @@ struct Line {
 impl Line {
     fn new(content: String, origin: char) -> Line {
         Line { content, origin }
+    }
+
+    fn to_richtext(&self) -> RichText {
+        RichText::new(self.to_string())
+            .monospace()
+            .color(self.color())
+    }
+
+    fn color(&self) -> Color32 {
+        match self.origin {
+            '+' => Color32::GREEN,
+            '-' => Color32::RED,
+            _ => Color32::WHITE,
+        }
+    }
+}
+
+impl fmt::Display for Line {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}{}", self.origin, self.content)
     }
 }
 
@@ -148,10 +185,15 @@ fn get_diffs(path: PathBuf) -> Vec<Diff> {
             None,
             None,
             Some(&mut |_delta, _hunk, _line| {
-                let line = Line::new(
-                    std::str::from_utf8(_line.content()).unwrap().to_string(),
-                    _line.origin(),
-                );
+                let mut content = std::str::from_utf8(_line.content()).unwrap().to_string();
+                if content.ends_with('\n') {
+                    content.pop();
+                    if content.ends_with('\r') {
+                        content.pop();
+                    }
+                }
+
+                let line = Line::new(content, _line.origin());
                 line_groups.borrow_mut().last_mut().unwrap().push(line);
                 true
             }),
@@ -211,7 +253,7 @@ mod tests {
     fn it_works() {
         let diffs = get_diffs(PathBuf::from("."));
         for diff in diffs {
-            println!("{}", diff);
+            println!("{:#?}", diff);
         }
     }
 }
