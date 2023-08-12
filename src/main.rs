@@ -110,7 +110,6 @@ fn get_diffs(path: PathBuf) -> Vec<Diff> {
         .expect("Error getting diff");
 
     let line_groups = Rc::new(RefCell::new(Vec::new()));
-
     diffs
         .foreach(
             &mut |_delta, _num| {
@@ -127,54 +126,44 @@ fn get_diffs(path: PathBuf) -> Vec<Diff> {
         )
         .unwrap();
 
-    let header_count = Rc::new(RefCell::new(Vec::new()));
-
+    let header_groups = Rc::new(RefCell::new(Vec::new()));
     diffs
         .foreach(
             &mut |_delta, _num| {
-                header_count.borrow_mut().push(0);
+                header_groups.borrow_mut().push(Vec::new());
                 true
             },
             None,
             Some(&mut |_delta, _hunk| {
-                header_count.borrow_mut().last_mut().unwrap().add_assign(1);
+                header_groups
+                    .borrow_mut()
+                    .last_mut()
+                    .unwrap()
+                    .push(std::str::from_utf8(_hunk.header()).unwrap().to_string());
                 true
             }),
             None,
         )
         .unwrap();
 
-    let headers = Rc::new(RefCell::new(Vec::new()));
     let mut result = Vec::new();
     diffs
         .foreach(
             &mut |_delta, _num| {
-                println!("TEST");
+                let diff = Diff::new(
+                    DiffStatus::from(_delta.status()),
+                    _delta.old_file().path().unwrap().to_path_buf(),
+                    _delta.new_file().path().unwrap().to_path_buf(),
+                    header_groups.borrow().first().unwrap().to_vec(),
+                    line_groups.borrow().first().unwrap().to_vec(),
+                );
+                result.push(diff);
+                header_groups.borrow_mut().remove(0);
+                line_groups.borrow_mut().remove(0);
                 true
             },
             None,
-            Some(&mut |_delta, _hunk| {
-                headers
-                    .borrow_mut()
-                    .push(std::str::from_utf8(_hunk.header()).unwrap().to_string());
-
-                if headers.borrow().len() == *header_count.borrow().first().unwrap() {
-                    let diff = Diff::new(
-                        DiffStatus::from(_delta.status()),
-                        _delta.old_file().path().unwrap().to_path_buf(),
-                        _delta.new_file().path().unwrap().to_path_buf(),
-                        headers.borrow().clone(),
-                        line_groups.borrow().first().unwrap().to_vec(),
-                    );
-
-                    result.push(diff);
-                    headers.borrow_mut().clear();
-                    header_count.borrow_mut().remove(0);
-                    line_groups.borrow_mut().remove(0);
-                }
-
-                true
-            }),
+            None,
             None,
         )
         .unwrap();
