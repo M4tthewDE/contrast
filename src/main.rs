@@ -106,7 +106,20 @@ impl MyApp {
         if let Some(diff) = self.shown_diff.clone() {
             ScrollArea::vertical().show(ui, |ui| {
                 for line in &diff.lines {
-                    ui.label(line.to_richtext());
+                    ui.horizontal(|ui| {
+                        match line.origin {
+                            '+' => ui.label(
+                                RichText::new(line.new_lineno.unwrap().to_string())
+                                    .color(Color32::GRAY),
+                            ),
+                            '-' => ui.label(
+                                RichText::new(line.old_lineno.unwrap().to_string())
+                                    .color(Color32::GRAY),
+                            ),
+                            _ => ui.label(RichText::new("").color(Color32::GRAY)),
+                        };
+                        ui.label(line.to_richtext());
+                    });
                 }
             });
         }
@@ -193,13 +206,25 @@ impl fmt::Display for Diff {
 
 #[derive(Debug, Clone)]
 struct Line {
+    old_lineno: Option<u32>,
+    new_lineno: Option<u32>,
     content: String,
     origin: char,
 }
 
 impl Line {
-    fn new(content: String, origin: char) -> Line {
-        Line { content, origin }
+    fn new(
+        old_lineno: Option<u32>,
+        new_lineno: Option<u32>,
+        content: String,
+        origin: char,
+    ) -> Line {
+        Line {
+            old_lineno,
+            new_lineno,
+            content,
+            origin,
+        }
     }
 
     fn to_richtext(&self) -> RichText {
@@ -247,7 +272,12 @@ fn get_diffs(path: PathBuf) -> (Vec<Diff>, DiffStats) {
                     }
                 }
 
-                let line = Line::new(content, _line.origin());
+                let line = Line::new(
+                    _line.old_lineno(),
+                    _line.new_lineno(),
+                    content,
+                    _line.origin(),
+                );
                 line_groups.borrow_mut().last_mut().unwrap().push(line);
                 true
             }),
