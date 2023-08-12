@@ -105,22 +105,24 @@ impl MyApp {
     fn diff_area(&self, ui: &mut Ui) {
         if let Some(diff) = self.shown_diff.clone() {
             ScrollArea::vertical().show(ui, |ui| {
-                for line in &diff.lines {
-                    ui.horizontal(|ui| {
-                        match line.origin {
-                            '+' => ui.label(
-                                RichText::new(line.new_lineno.unwrap().to_string())
-                                    .color(Color32::GRAY),
-                            ),
-                            '-' => ui.label(
-                                RichText::new(line.old_lineno.unwrap().to_string())
-                                    .color(Color32::GRAY),
-                            ),
-                            _ => ui.label(RichText::new("").color(Color32::GRAY)),
-                        };
-                        ui.label(line.to_richtext());
-                    });
-                }
+                ui.vertical(|ui| {
+                    for line in &diff.lines {
+                        ui.horizontal(|ui| {
+                            match line.origin {
+                                '+' => ui.label(
+                                    RichText::new(line.new_lineno.unwrap().to_string())
+                                        .color(Color32::GRAY),
+                                ),
+                                '-' => ui.label(
+                                    RichText::new(line.old_lineno.unwrap().to_string())
+                                        .color(Color32::GRAY),
+                                ),
+                                _ => ui.label(RichText::new("").color(Color32::GRAY)),
+                            };
+                            ui.label(line.to_richtext());
+                        });
+                    }
+                })
             });
         }
     }
