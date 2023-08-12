@@ -71,16 +71,35 @@ struct Diff {
     old_file: PathBuf,
     new_file: PathBuf,
     headers: Vec<String>,
+    lines: Vec<Line>,
 }
 
 impl Diff {
-    fn new(status: DiffStatus, old_file: PathBuf, new_file: PathBuf, headers: Vec<String>) -> Diff {
+    fn new(
+        status: DiffStatus,
+        old_file: PathBuf,
+        new_file: PathBuf,
+        headers: Vec<String>,
+        lines: Vec<Line>,
+    ) -> Diff {
         Diff {
             status,
             old_file,
             new_file,
             headers,
+            lines,
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Line {
+    content: String,
+}
+
+impl Line {
+    fn new(content: String) -> Line {
+        Line { content }
     }
 }
 
@@ -89,6 +108,24 @@ fn get_diffs(path: PathBuf) -> Vec<Diff> {
     let diffs = repo
         .diff_index_to_workdir(None, None)
         .expect("Error getting diff");
+
+    let line_groups = Rc::new(RefCell::new(Vec::new()));
+
+    diffs
+        .foreach(
+            &mut |_delta, _num| {
+                line_groups.borrow_mut().push(Vec::new());
+                true
+            },
+            None,
+            None,
+            Some(&mut |_delta, _hunk, _line| {
+                let line = Line::new(std::str::from_utf8(_line.content()).unwrap().to_string());
+                line_groups.borrow_mut().last_mut().unwrap().push(line);
+                true
+            }),
+        )
+        .unwrap();
 
     let header_count = Rc::new(RefCell::new(Vec::new()));
 
@@ -107,27 +144,16 @@ fn get_diffs(path: PathBuf) -> Vec<Diff> {
         )
         .unwrap();
 
-    println!("HEADER_COUNT: {:?}", header_count);
-
     let headers = Rc::new(RefCell::new(Vec::new()));
     let mut result = Vec::new();
     diffs
         .foreach(
             &mut |_delta, _num| {
-                println!("status: {:?}", _delta.status());
-                println!("old_file: {:?}", _delta.old_file().path());
-                println!("new_file: {:?}", _delta.new_file().path());
-
+                println!("TEST");
                 true
             },
             None,
             Some(&mut |_delta, _hunk| {
-                println!("old_start: {:?}", _hunk.old_start());
-                println!("old_lines: {:?}", _hunk.old_lines());
-                println!("new_start: {:?}", _hunk.new_start());
-                println!("new_lines: {:?}", _hunk.new_lines());
-                println!("header: {:?}", std::str::from_utf8(_hunk.header()).unwrap());
-
                 headers
                     .borrow_mut()
                     .push(std::str::from_utf8(_hunk.header()).unwrap().to_string());
@@ -138,11 +164,13 @@ fn get_diffs(path: PathBuf) -> Vec<Diff> {
                         _delta.old_file().path().unwrap().to_path_buf(),
                         _delta.new_file().path().unwrap().to_path_buf(),
                         headers.borrow().clone(),
+                        line_groups.borrow().first().unwrap().to_vec(),
                     );
 
                     result.push(diff);
                     headers.borrow_mut().clear();
                     header_count.borrow_mut().remove(0);
+                    line_groups.borrow_mut().remove(0);
                 }
 
                 true
@@ -151,7 +179,6 @@ fn get_diffs(path: PathBuf) -> Vec<Diff> {
         )
         .unwrap();
 
-    println!("--------------------------------");
     result
 }
 
