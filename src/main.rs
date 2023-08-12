@@ -1,5 +1,5 @@
 use core::fmt;
-use egui::{Color32, RichText, ScrollArea};
+use egui::{Color32, RichText, ScrollArea, Ui};
 use git2::{Delta, DiffStats, DiffStatsFormat, Repository};
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
@@ -27,83 +27,92 @@ struct MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.heading(RichText::new("Diff Viewer").color(Color32::WHITE));
-                ui.separator();
+            self.selection_area(ui);
+            self.project_area(ui);
+            self.diff_area(ui);
+        });
+    }
+}
 
-                if ui
-                    .button(RichText::new("Open").color(Color32::WHITE))
-                    .clicked()
-                {
-                    if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                        self.project_path = path.clone();
-                        let (diffs, stats) = get_diffs(path.clone());
-                        self.diffs = diffs;
-                        self.stats = Some(stats);
-                        self.shown_diff = self.diffs.first().cloned().or(None);
-                    }
-                }
-
-                if !self.diffs.is_empty() {
-                    if ui
-                        .button(RichText::new("Reset").color(Color32::WHITE))
-                        .clicked()
-                    {
-                        self.diffs = Vec::new();
-                        self.shown_diff = None;
-                    }
-                }
-            });
+impl MyApp {
+    fn selection_area(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            ui.heading(RichText::new("Diff Viewer").color(Color32::WHITE));
             ui.separator();
 
-            if !self.diffs.is_empty() {
-                ui.heading(
-                    RichText::new(self.project_path.to_str().unwrap()).color(Color32::WHITE),
-                );
-                ui.label(
-                    RichText::new(
-                        self.stats
-                            .as_ref()
-                            .unwrap()
-                            .to_buf(DiffStatsFormat::SHORT, 100)
-                            .unwrap()
-                            .as_str()
-                            .unwrap(),
-                    )
-                    .color(Color32::WHITE),
-                );
-
-                for diff in &self.diffs {
-                    if self
-                        .shown_diff
-                        .as_ref()
-                        .map_or(PathBuf::default(), |d| d.old_file.clone())
-                        == diff.old_file
-                    {
-                        if ui
-                            .button(diff.old_file.to_str().unwrap())
-                            .highlight()
-                            .clicked()
-                        {
-                            self.shown_diff = Some(diff.clone());
-                        }
-                    } else {
-                        if ui.button(diff.old_file.to_str().unwrap()).clicked() {
-                            self.shown_diff = Some(diff.clone());
-                        }
-                    }
+            if ui
+                .button(RichText::new("Open").color(Color32::WHITE))
+                .clicked()
+            {
+                if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                    self.project_path = path.clone();
+                    let (diffs, stats) = get_diffs(path.clone());
+                    self.diffs = diffs;
+                    self.stats = Some(stats);
+                    self.shown_diff = self.diffs.first().cloned().or(None);
                 }
-                ui.separator();
             }
 
-            if let Some(diff) = self.shown_diff.clone() {
-                ScrollArea::vertical().show(ui, |ui| {
-                    for line in &diff.lines {
-                        ui.label(line.to_richtext());
-                    }
-                });
+            if !self.diffs.is_empty() {
+                if ui
+                    .button(RichText::new("Reset").color(Color32::WHITE))
+                    .clicked()
+                {
+                    self.diffs = Vec::new();
+                    self.shown_diff = None;
+                }
             }
         });
+        ui.separator();
+    }
+    fn project_area(&mut self, ui: &mut Ui) {
+        if !self.diffs.is_empty() {
+            ui.heading(RichText::new(self.project_path.to_str().unwrap()).color(Color32::WHITE));
+            ui.label(
+                RichText::new(
+                    self.stats
+                        .as_ref()
+                        .unwrap()
+                        .to_buf(DiffStatsFormat::SHORT, 100)
+                        .unwrap()
+                        .as_str()
+                        .unwrap(),
+                )
+                .color(Color32::WHITE),
+            );
+
+            for diff in &self.diffs {
+                if self
+                    .shown_diff
+                    .as_ref()
+                    .map_or(PathBuf::default(), |d| d.old_file.clone())
+                    == diff.old_file
+                {
+                    if ui
+                        .button(diff.old_file.to_str().unwrap())
+                        .highlight()
+                        .clicked()
+                    {
+                        self.shown_diff = Some(diff.clone());
+                    }
+                } else {
+                    if ui.button(diff.old_file.to_str().unwrap()).clicked() {
+                        self.shown_diff = Some(diff.clone());
+                    }
+                }
+            }
+            ui.separator();
+        }
+    }
+
+    fn diff_area(&self, ui: &mut Ui) {
+        if let Some(diff) = self.shown_diff.clone() {
+            ScrollArea::vertical().show(ui, |ui| {
+                for line in &diff.lines {
+                    ui.label(line.to_richtext());
+                }
+            });
+        }
     }
 }
 
