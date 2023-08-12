@@ -1,6 +1,6 @@
 use core::fmt;
 use git2::{Delta, Repository};
-use std::{cell::RefCell, ops::AddAssign, path::PathBuf, rc::Rc};
+use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 use eframe::egui;
 
@@ -17,7 +17,7 @@ fn main() -> Result<(), eframe::Error> {
 
 #[derive(Default)]
 struct MyApp {
-    picked_path: PathBuf,
+    diffs: Vec<Diff>,
 }
 
 impl eframe::App for MyApp {
@@ -25,9 +25,18 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             if ui.button("Open project...").clicked() {
                 if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    get_diffs(path.clone());
-                    self.picked_path = path;
+                    self.diffs = get_diffs(path.clone());
                 }
+            }
+
+            if !self.diffs.is_empty() {
+                if ui.button("Reset").clicked() {
+                    self.diffs = Vec::new();
+                }
+            }
+
+            for diff in &self.diffs {
+                ui.label(diff.to_string());
             }
         });
     }
@@ -102,8 +111,6 @@ impl fmt::Display for Diff {
             self.new_file.to_str().unwrap(),
         )
         .unwrap();
-
-        write!(f, "Status: {:?}\n", self.status).unwrap();
 
         for line in &self.lines {
             write!(f, "{}{}", line.origin, line.content).unwrap();
