@@ -1,5 +1,5 @@
 use core::fmt;
-use egui::{Color32, RichText, ScrollArea, Ui};
+use egui::{Color32, Label, RichText, ScrollArea, Ui};
 use git2::{Delta, DiffStats, DiffStatsFormat, Repository};
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
@@ -107,6 +107,19 @@ impl MyApp {
             ScrollArea::vertical().show(ui, |ui| {
                 ui.vertical(|ui| {
                     for line in &diff.lines {
+                        for header in &diff.headers {
+                            if header.line == line.new_lineno.unwrap_or(0)
+                                && line.origin != '+'
+                                && line.origin != '-'
+                            {
+                                let (green_label, white_label) = header.to_labels();
+                                ui.horizontal(|ui| {
+                                    ui.add(green_label);
+                                    ui.add(white_label);
+                                });
+                            }
+                        }
+
                         ui.horizontal(|ui| {
                             match line.origin {
                                 '+' => ui.label(
@@ -169,7 +182,7 @@ struct Diff {
     _status: DiffStatus,
     old_file: PathBuf,
     new_file: PathBuf,
-    _headers: Vec<String>,
+    headers: Vec<Header>,
     lines: Vec<Line>,
 }
 
@@ -178,14 +191,14 @@ impl Diff {
         _status: DiffStatus,
         old_file: PathBuf,
         new_file: PathBuf,
-        _headers: Vec<String>,
+        headers: Vec<Header>,
         lines: Vec<Line>,
     ) -> Diff {
         Diff {
             _status,
             old_file,
             new_file,
-            _headers,
+            headers,
             lines,
         }
     }
@@ -206,6 +219,53 @@ impl fmt::Display for Diff {
         }
 
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Header {
+    content: String,
+    line: u32,
+}
+
+impl Header {
+    fn new(raw: String) -> Header {
+        let line: u32 = raw
+            .split(' ')
+            .nth(2)
+            .unwrap()
+            .split(',')
+            .next()
+            .unwrap()
+            .get(1..)
+            .unwrap()
+            .parse()
+            .unwrap();
+        Header { content: raw, line }
+    }
+
+    fn to_labels(&self) -> (Label, Label) {
+        let green_part = self
+            .content
+            .split(' ')
+            .take(4)
+            .collect::<Vec<&str>>()
+            .join(" ");
+        let white_part = self
+            .content
+            .split(' ')
+            .skip(4)
+            .collect::<Vec<&str>>()
+            .join(" ");
+
+        let green_label = Label::new(
+            RichText::new(green_part)
+                .color(Color32::from_rgb(7, 138, 171))
+                .monospace(),
+        );
+        let white_label = Label::new(RichText::new(white_part).color(Color32::WHITE).monospace());
+
+        (green_label, white_label)
     }
 }
 
@@ -298,11 +358,20 @@ fn get_diffs(path: PathBuf) -> (Vec<Diff>, DiffStats) {
             },
             None,
             Some(&mut |_delta, _hunk| {
+                let mut content = std::str::from_utf8(_hunk.header()).unwrap().to_string();
+                if content.ends_with('\n') {
+                    content.pop();
+                    if content.ends_with('\r') {
+                        content.pop();
+                    }
+                }
+
                 header_groups
                     .borrow_mut()
                     .last_mut()
                     .unwrap()
-                    .push(std::str::from_utf8(_hunk.header()).unwrap().to_string());
+                    .push(Header::new(content));
+
                 true
             }),
             None,
@@ -344,5 +413,11 @@ mod tests {
         for diff in diffs {
             println!("{:#?}", diff);
         }
+    }
+
+    #[test]
+    fn parse_header() {
+        let header = Header::new("@@ -209,6 +222,33 @@ impl fmt::Display for Diff {".to_string());
+        assert_eq!(header.line, 222)
     }
 }
