@@ -28,10 +28,13 @@ impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.heading("Diff Viewer");
+                ui.heading(RichText::new("Diff Viewer").color(Color32::WHITE));
                 ui.separator();
 
-                if ui.button("Open project...").clicked() {
+                if ui
+                    .button(RichText::new("Open").color(Color32::WHITE))
+                    .clicked()
+                {
                     if let Some(path) = rfd::FileDialog::new().pick_folder() {
                         self.project_path = path.clone();
                         let (diffs, stats) = get_diffs(path.clone());
@@ -42,26 +45,33 @@ impl eframe::App for MyApp {
                 }
 
                 if !self.diffs.is_empty() {
-                    if ui.button("Reset").clicked() {
+                    if ui
+                        .button(RichText::new("Reset").color(Color32::WHITE))
+                        .clicked()
+                    {
                         self.diffs = Vec::new();
                         self.shown_diff = None;
                     }
                 }
             });
+            ui.separator();
 
             if !self.diffs.is_empty() {
-                ui.separator();
-                ui.heading(format!("{}", self.project_path.to_str().unwrap()));
-                ui.label(
-                    self.stats
-                        .as_ref()
-                        .unwrap()
-                        .to_buf(DiffStatsFormat::SHORT, 100)
-                        .unwrap()
-                        .as_str()
-                        .unwrap(),
+                ui.heading(
+                    RichText::new(self.project_path.to_str().unwrap()).color(Color32::WHITE),
                 );
-                ui.separator();
+                ui.label(
+                    RichText::new(
+                        self.stats
+                            .as_ref()
+                            .unwrap()
+                            .to_buf(DiffStatsFormat::SHORT, 100)
+                            .unwrap()
+                            .as_str()
+                            .unwrap(),
+                    )
+                    .color(Color32::WHITE),
+                );
 
                 for diff in &self.diffs {
                     if self
