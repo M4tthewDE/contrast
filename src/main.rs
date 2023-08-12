@@ -1,3 +1,4 @@
+use core::fmt;
 use git2::{Delta, Repository};
 use std::{cell::RefCell, ops::AddAssign, path::PathBuf, rc::Rc};
 
@@ -92,14 +93,35 @@ impl Diff {
     }
 }
 
+impl fmt::Display for Diff {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "diff --git a/{} b/{}\n",
+            self.old_file.to_str().unwrap(),
+            self.new_file.to_str().unwrap(),
+        )
+        .unwrap();
+
+        write!(f, "Status: {:?}\n", self.status).unwrap();
+
+        for line in &self.lines {
+            write!(f, "{}{}", line.origin, line.content).unwrap();
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone)]
 struct Line {
     content: String,
+    origin: char,
 }
 
 impl Line {
-    fn new(content: String) -> Line {
-        Line { content }
+    fn new(content: String, origin: char) -> Line {
+        Line { content, origin }
     }
 }
 
@@ -119,7 +141,10 @@ fn get_diffs(path: PathBuf) -> Vec<Diff> {
             None,
             None,
             Some(&mut |_delta, _hunk, _line| {
-                let line = Line::new(std::str::from_utf8(_line.content()).unwrap().to_string());
+                let line = Line::new(
+                    std::str::from_utf8(_line.content()).unwrap().to_string(),
+                    _line.origin(),
+                );
                 line_groups.borrow_mut().last_mut().unwrap().push(line);
                 true
             }),
@@ -179,7 +204,7 @@ mod tests {
     fn it_works() {
         let diffs = get_diffs(PathBuf::from("."));
         for diff in diffs {
-            println!("{:?}", diff);
+            println!("{}", diff);
         }
     }
 }
