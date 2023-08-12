@@ -53,14 +53,13 @@ impl MyApp {
                 }
             }
 
-            if !self.diffs.is_empty() {
-                if ui
+            if !self.diffs.is_empty()
+                && ui
                     .button(RichText::new("Reset").color(Color32::WHITE))
                     .clicked()
-                {
-                    self.diffs = Vec::new();
-                    self.shown_diff = None;
-                }
+            {
+                self.diffs = Vec::new();
+                self.shown_diff = None;
             }
         });
         ui.separator();
@@ -95,10 +94,8 @@ impl MyApp {
                     {
                         self.shown_diff = Some(diff.clone());
                     }
-                } else {
-                    if ui.button(diff.old_file.to_str().unwrap()).clicked() {
-                        self.shown_diff = Some(diff.clone());
-                    }
+                } else if ui.button(diff.old_file.to_str().unwrap()).clicked() {
+                    self.shown_diff = Some(diff.clone());
                 }
             }
             ui.separator();
@@ -178,9 +175,9 @@ impl Diff {
 
 impl fmt::Display for Diff {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            "diff --git a/{} b/{}\n",
+            "diff --git a/{} b/{}",
             self.old_file.to_str().unwrap(),
             self.new_file.to_str().unwrap(),
         )
