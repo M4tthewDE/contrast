@@ -1,6 +1,6 @@
 use core::fmt;
 use egui::{Color32, RichText, ScrollArea};
-use git2::{Delta, Repository};
+use git2::{Delta, DiffStats, DiffStatsFormat, Repository};
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 use eframe::egui;
@@ -20,34 +20,70 @@ fn main() -> Result<(), eframe::Error> {
 struct MyApp {
     project_path: PathBuf,
     diffs: Vec<Diff>,
+    stats: Option<DiffStats>,
     shown_diff: Option<Diff>,
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Contrast - Diff Viewer");
-            if ui.button("Open project...").clicked() {
-                if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    self.project_path = path.clone();
-                    self.diffs = get_diffs(path.clone());
-                    self.shown_diff = self.diffs.first().cloned().or(None);
-                }
-            }
+            ui.horizontal(|ui| {
+                ui.heading("Diff Viewer");
+                ui.separator();
 
-            if !self.diffs.is_empty() {
-                if ui.button("Reset").clicked() {
-                    self.diffs = Vec::new();
-                    self.shown_diff = None;
-                }
-
-                ui.heading(format!("Diff for {}", self.project_path.to_str().unwrap()));
-
-                for diff in &self.diffs {
-                    if ui.button(diff.old_file.to_str().unwrap()).clicked() {
-                        self.shown_diff = Some(diff.clone());
+                if ui.button("Open project...").clicked() {
+                    if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                        self.project_path = path.clone();
+                        let (diffs, stats) = get_diffs(path.clone());
+                        self.diffs = diffs;
+                        self.stats = Some(stats);
+                        self.shown_diff = self.diffs.first().cloned().or(None);
                     }
                 }
+
+                if !self.diffs.is_empty() {
+                    if ui.button("Reset").clicked() {
+                        self.diffs = Vec::new();
+                        self.shown_diff = None;
+                    }
+                }
+            });
+
+            if !self.diffs.is_empty() {
+                ui.separator();
+                ui.heading(format!("{}", self.project_path.to_str().unwrap()));
+                ui.label(
+                    self.stats
+                        .as_ref()
+                        .unwrap()
+                        .to_buf(DiffStatsFormat::SHORT, 100)
+                        .unwrap()
+                        .as_str()
+                        .unwrap(),
+                );
+                ui.separator();
+
+                for diff in &self.diffs {
+                    if self
+                        .shown_diff
+                        .as_ref()
+                        .map_or(PathBuf::default(), |d| d.old_file.clone())
+                        == diff.old_file
+                    {
+                        if ui
+                            .button(diff.old_file.to_str().unwrap())
+                            .highlight()
+                            .clicked()
+                        {
+                            self.shown_diff = Some(diff.clone());
+                        }
+                    } else {
+                        if ui.button(diff.old_file.to_str().unwrap()).clicked() {
+                            self.shown_diff = Some(diff.clone());
+                        }
+                    }
+                }
+                ui.separator();
             }
 
             if let Some(diff) = self.shown_diff.clone() {
@@ -96,32 +132,28 @@ impl From<Delta> for DiffStatus {
 
 #[derive(Debug, Clone)]
 struct Diff {
-    status: DiffStatus,
+    _status: DiffStatus,
     old_file: PathBuf,
     new_file: PathBuf,
-    headers: Vec<String>,
+    _headers: Vec<String>,
     lines: Vec<Line>,
 }
 
 impl Diff {
     fn new(
-        status: DiffStatus,
+        _status: DiffStatus,
         old_file: PathBuf,
         new_file: PathBuf,
-        headers: Vec<String>,
+        _headers: Vec<String>,
         lines: Vec<Line>,
     ) -> Diff {
         Diff {
-            status,
+            _status,
             old_file,
             new_file,
-            headers,
+            _headers,
             lines,
         }
-    }
-
-    fn id_source(&self) -> String {
-        self.old_file.to_str().unwrap().to_string()
     }
 }
 
@@ -175,7 +207,7 @@ impl fmt::Display for Line {
     }
 }
 
-fn get_diffs(path: PathBuf) -> Vec<Diff> {
+fn get_diffs(path: PathBuf) -> (Vec<Diff>, DiffStats) {
     let repo = Repository::open(path).expect("Error opening repository");
     let diffs = repo
         .diff_index_to_workdir(None, None)
@@ -248,7 +280,7 @@ fn get_diffs(path: PathBuf) -> Vec<Diff> {
         )
         .unwrap();
 
-    result
+    (result, diffs.stats().unwrap())
 }
 
 #[cfg(test)]
@@ -257,7 +289,7 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let diffs = get_diffs(PathBuf::from("."));
+        let (diffs, _) = get_diffs(PathBuf::from("."));
         for diff in diffs {
             println!("{:#?}", diff);
         }
