@@ -117,7 +117,10 @@ impl MyApp {
                                     RichText::new(line.old_lineno.unwrap().to_string())
                                         .color(Color32::GRAY),
                                 ),
-                                _ => ui.label(RichText::new("").color(Color32::GRAY)),
+                                _ => ui.label(
+                                    RichText::new(line.new_lineno.unwrap().to_string())
+                                        .color(Color32::GRAY),
+                                ),
                             };
                             ui.label(line.to_richtext());
                         });
