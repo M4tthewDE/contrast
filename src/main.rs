@@ -208,13 +208,7 @@ struct Diff {
 }
 
 impl Diff {
-    fn new(
-        _status: DiffStatus,
-        old_file: PathBuf,
-        new_file: PathBuf,
-        headers: Vec<Header>,
-        lines: Vec<Line>,
-    ) -> Diff {
+    fn new(old_file: PathBuf, new_file: PathBuf, headers: Vec<Header>, lines: Vec<Line>) -> Diff {
         Diff {
             old_file,
             new_file,
@@ -403,7 +397,6 @@ fn get_diffs(path: PathBuf) -> (Vec<Diff>, DiffStats) {
         .foreach(
             &mut |_delta, _num| {
                 let diff = Diff::new(
-                    DiffStatus::from(_delta.status()),
                     _delta.old_file().path().unwrap().to_path_buf(),
                     _delta.new_file().path().unwrap().to_path_buf(),
                     header_groups.borrow().first().unwrap().to_vec(),
