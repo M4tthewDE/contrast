@@ -26,7 +26,7 @@ struct AppData {
     project_path: String,
     diffs: Vec<Diff>,
     stats: DiffStats,
-    selected_diff_index: u32,
+    selected_diff_index: usize,
 }
 
 impl AppData {
@@ -52,6 +52,18 @@ impl AppData {
         self.stats = stats;
         self.selected_diff_index = 0;
     }
+
+    fn get_selected_diff(&self) -> &Diff {
+        // this can never fail (surely)
+        self.diffs.get(self.selected_diff_index).unwrap()
+    }
+
+    fn get_stats_richtext(&self) -> RichText {
+        // TODO: don't use to_buf and remove unwrap that way
+        let stats = self.stats.to_buf(DiffStatsFormat::SHORT, 100).unwrap();
+        let content = stats.as_str().unwrap_or("Error fetching stats");
+        RichText::new(content).color(Color32::WHITE)
+    }
 }
 
 impl eframe::App for MyApp {
@@ -61,10 +73,7 @@ impl eframe::App for MyApp {
             self.project_area(ui);
 
             if let Some(app_data) = &self.app_data {
-                let diff = app_data
-                    .diffs
-                    .get(app_data.selected_diff_index as usize)
-                    .unwrap();
+                let diff = app_data.get_selected_diff();
                 self.diff_area(ui, diff.clone());
             }
         });
@@ -117,23 +126,13 @@ impl MyApp {
     fn project_area(&mut self, ui: &mut Ui) {
         if let Some(app_data) = &mut self.app_data {
             ui.heading(RichText::new(app_data.project_path.clone()).color(Color32::WHITE));
-            ui.label(
-                RichText::new(
-                    app_data
-                        .stats
-                        .to_buf(DiffStatsFormat::SHORT, 100)
-                        .unwrap()
-                        .as_str()
-                        .unwrap(),
-                )
-                .color(Color32::WHITE),
-            );
+            ui.label(app_data.get_stats_richtext());
 
             for (i, diff) in app_data.diffs.iter().enumerate() {
-                if app_data.selected_diff_index == i as u32 {
+                if app_data.selected_diff_index == i {
                     ui.button(diff.old_file.to_str().unwrap()).highlight();
                 } else if ui.button(diff.old_file.to_str().unwrap()).clicked() {
-                    app_data.selected_diff_index = i as u32;
+                    app_data.selected_diff_index = i;
                 }
             }
             ui.separator();
