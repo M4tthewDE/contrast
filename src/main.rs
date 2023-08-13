@@ -289,20 +289,23 @@ struct Header {
     line: u32,
 }
 
+struct HeaderParserError;
+
 impl Header {
-    fn new(raw: String) -> Header {
+    fn new(raw: String) -> Result<Header, HeaderParserError> {
         let line: u32 = raw
             .split(' ')
             .nth(2)
-            .unwrap()
+            .ok_or(HeaderParserError)?
             .split(',')
             .next()
-            .unwrap()
+            .ok_or(HeaderParserError)?
             .get(1..)
-            .unwrap()
+            .ok_or(HeaderParserError)?
             .parse()
-            .unwrap();
-        Header { content: raw, line }
+            .map_err(|_| HeaderParserError)?;
+
+        Ok(Header { content: raw, line })
     }
 
     fn to_labels(&self) -> (Label, Label) {
@@ -427,11 +430,10 @@ fn get_diffs(path: String) -> (Vec<Diff>, DiffStats) {
                     }
                 }
 
-                header_groups
-                    .borrow_mut()
-                    .last_mut()
-                    .unwrap()
-                    .push(Header::new(content));
+                // TODO: what are we doing if not? parsing should be aborted imo
+                if let Ok(header) = Header::new(content) {
+                    header_groups.borrow_mut().last_mut().unwrap().push(header);
+                }
 
                 true
             }),
