@@ -1,4 +1,4 @@
-use egui::{Color32, RichText, ScrollArea, Ui, Window};
+use egui::{Align, Color32, Layout, RichText, ScrollArea, Ui, Window};
 use git2::DiffStats;
 use std::path::PathBuf;
 
@@ -94,10 +94,10 @@ impl eframe::App for MyApp {
             self.selection_area(ctx, ui);
             self.project_area(ui);
 
-            if let Some(app_data) = &self.app_data {
-                let diff = app_data.get_selected_diff();
-                self.diff_area(ui, diff.clone());
-            }
+            ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
+                self.files_area(ui);
+                self.diff_area(ui);
+            });
         });
     }
 }
@@ -160,46 +160,62 @@ impl MyApp {
         if let Some(app_data) = &mut self.app_data {
             ui.heading(RichText::new(app_data.project_path.clone()).color(Color32::WHITE));
             ui.label(app_data.get_stats_richtext());
-
-            for (i, diff) in app_data.diffs.iter().enumerate() {
-                if app_data.selected_diff_index == i {
-                    ui.button(diff.file_name()).highlight();
-                } else if ui.button(diff.file_name()).clicked() {
-                    app_data.selected_diff_index = i;
-                }
-            }
             ui.separator();
         }
     }
 
-    fn diff_area(&self, ui: &mut Ui, diff: Diff) {
-        let longest_line = self.get_longest_line(diff.clone());
+    fn files_area(&mut self, ui: &mut Ui) {
+        ui.vertical(|ui| {
+            if let Some(app_data) = &mut self.app_data {
+                ScrollArea::vertical()
+                    .id_source("file scroll area")
+                    .show(ui, |ui| {
+                        for (i, diff) in app_data.diffs.iter().enumerate() {
+                            if app_data.selected_diff_index == i {
+                                ui.button(diff.file_name()).highlight();
+                            } else if ui.button(diff.file_name()).clicked() {
+                                app_data.selected_diff_index = i;
+                            }
+                        }
+                    });
+            }
+        });
+    }
 
-        ScrollArea::vertical()
-            .auto_shrink([false, false])
-            .show(ui, |ui| {
-                for line in &diff.lines {
-                    for header in &diff.headers {
-                        if header.line == line.new_lineno.unwrap_or(0)
-                            && line.origin != '+'
-                            && line.origin != '-'
-                        {
-                            let (green_label, white_label) = header.to_labels();
+    fn diff_area(&self, ui: &mut Ui) {
+        if let Some(app_data) = &self.app_data {
+            let diff = app_data.get_selected_diff();
+            let longest_line = self.get_longest_line(diff.clone());
+
+            ui.vertical(|ui| {
+                ScrollArea::both()
+                    .id_source("diff area")
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        for line in &diff.lines {
+                            for header in &diff.headers {
+                                if header.line == line.new_lineno.unwrap_or(0)
+                                    && line.origin != '+'
+                                    && line.origin != '-'
+                                {
+                                    let (green_label, white_label) = header.to_labels();
+                                    ui.horizontal(|ui| {
+                                        ui.add(green_label);
+                                        ui.add(white_label);
+                                    });
+                                }
+                            }
+
+                            let line_no_richtext = self.get_line_no_richtext(line, longest_line);
+
                             ui.horizontal(|ui| {
-                                ui.add(green_label);
-                                ui.add(white_label);
+                                ui.label(line_no_richtext);
+                                ui.label(line.to_richtext());
                             });
                         }
-                    }
-
-                    let line_no_richtext = self.get_line_no_richtext(line, longest_line);
-
-                    ui.horizontal(|ui| {
-                        ui.label(line_no_richtext);
-                        ui.label(line.to_richtext());
                     });
-                }
             });
+        }
     }
 
     fn get_line_no_richtext(&self, line: &Line, longest_line: u32) -> RichText {
