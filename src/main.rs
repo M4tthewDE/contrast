@@ -187,6 +187,11 @@ impl MyApp {
             let diff = app_data.get_selected_diff();
             let longest_line = self.get_longest_line(diff.clone());
 
+            if diff.lines.is_empty() {
+                ui.label(RichText::new("No content").color(Color32::GRAY));
+                return;
+            }
+
             ui.vertical(|ui| {
                 ScrollArea::both()
                     .id_source("diff area")
