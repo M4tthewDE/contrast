@@ -104,6 +104,8 @@ impl MyApp {
 
     fn diff_area(&self, ui: &mut Ui) {
         if let Some(diff) = self.shown_diff.clone() {
+            let longest_line = self.get_longest_line();
+
             ScrollArea::vertical()
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
@@ -121,26 +123,46 @@ impl MyApp {
                             }
                         }
 
+                        let line_no_richtext = self.get_line_no_richtext(line, longest_line);
+
                         ui.horizontal(|ui| {
-                            match line.origin {
-                                '+' => ui.label(
-                                    RichText::new(line.new_lineno.unwrap().to_string())
-                                        .color(Color32::GRAY),
-                                ),
-                                '-' => ui.label(
-                                    RichText::new(line.old_lineno.unwrap().to_string())
-                                        .color(Color32::GRAY),
-                                ),
-                                _ => ui.label(
-                                    RichText::new(line.new_lineno.unwrap().to_string())
-                                        .color(Color32::GRAY),
-                                ),
-                            };
+                            ui.label(line_no_richtext);
                             ui.label(line.to_richtext());
                         });
                     }
                 });
         }
+    }
+
+    fn get_line_no_richtext(&self, line: &Line, longest_line: u32) -> RichText {
+        let mut line_no = match line.origin {
+            '+' => line.new_lineno.unwrap().to_string(),
+            '-' => line.old_lineno.unwrap().to_string(),
+            _ => line.new_lineno.unwrap().to_string(),
+        };
+
+        while line_no.len() != longest_line.to_string().len() {
+            line_no = format!(" {}", line_no);
+        }
+
+        RichText::new(line_no).color(Color32::GRAY).monospace()
+    }
+
+    fn get_longest_line(&self) -> u32 {
+        let mut longest_line = 0;
+        for line in &self.shown_diff.clone().unwrap().lines {
+            let line_no = match line.origin {
+                '+' => line.new_lineno.unwrap(),
+                '-' => line.old_lineno.unwrap(),
+                _ => line.new_lineno.unwrap(),
+            };
+
+            if line_no > longest_line {
+                longest_line = line_no;
+            }
+        }
+
+        longest_line
     }
 }
 
