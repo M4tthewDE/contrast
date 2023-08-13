@@ -1,6 +1,6 @@
 [package]
 name = "contrast-diff-viewer"
-version = "0.3.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["m4tthewde <mattider2@gmail.com>"]
 license = "GPL-3.0"
