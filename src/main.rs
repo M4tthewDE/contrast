@@ -59,9 +59,15 @@ impl AppData {
     }
 
     fn get_stats_richtext(&self) -> RichText {
-        // TODO: don't use to_buf and remove unwrap that way
-        let stats = self.stats.to_buf(DiffStatsFormat::SHORT, 100).unwrap();
-        let content = stats.as_str().unwrap_or("Error fetching stats");
+        let file_changed_count = self.stats.files_changed();
+        let insertion_count = self.stats.insertions();
+        let deletion_count = self.stats.deletions();
+
+        let content = format!(
+            "{} file(s) changed, {} insertions(+), {} deletions(-)\n",
+            file_changed_count, insertion_count, deletion_count
+        );
+
         RichText::new(content).color(Color32::WHITE)
     }
 }
