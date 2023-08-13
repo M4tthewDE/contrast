@@ -201,7 +201,6 @@ impl From<Delta> for DiffStatus {
 
 #[derive(Debug, Clone)]
 struct Diff {
-    _status: DiffStatus,
     old_file: PathBuf,
     new_file: PathBuf,
     headers: Vec<Header>,
@@ -217,7 +216,6 @@ impl Diff {
         lines: Vec<Line>,
     ) -> Diff {
         Diff {
-            _status,
             old_file,
             new_file,
             headers,
