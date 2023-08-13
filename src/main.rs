@@ -18,11 +18,40 @@ fn main() -> Result<(), eframe::Error> {
 
 #[derive(Default)]
 struct MyApp {
+    app_data: Option<AppData>,
+    show_no_diff_dialog: bool,
+}
+
+struct AppData {
     project_path: String,
     diffs: Vec<Diff>,
-    stats: Option<DiffStats>,
-    selected_diff: Option<Diff>,
-    show_no_diff_dialog: bool,
+    stats: DiffStats,
+    selected_diff_index: u32,
+}
+
+impl AppData {
+    fn new(path: PathBuf) -> Option<AppData> {
+        let project_path = path.to_str()?.to_owned();
+        let (diffs, stats) = get_diffs(project_path.clone());
+
+        if diffs.is_empty() {
+            return None;
+        }
+
+        Some(AppData {
+            project_path,
+            diffs,
+            stats,
+            selected_diff_index: 0,
+        })
+    }
+
+    fn refresh(&mut self) {
+        let (diffs, stats) = get_diffs(self.project_path.clone());
+        self.diffs = diffs;
+        self.stats = stats;
+        self.selected_diff_index = 0;
+    }
 }
 
 impl eframe::App for MyApp {
@@ -30,7 +59,14 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             self.selection_area(ctx, ui);
             self.project_area(ui);
-            self.diff_area(ui);
+
+            if let Some(app_data) = &self.app_data {
+                let diff = app_data
+                    .diffs
+                    .get(app_data.selected_diff_index as usize)
+                    .unwrap();
+                self.diff_area(ui, diff.clone());
+            }
         });
     }
 }
@@ -46,16 +82,10 @@ impl MyApp {
                 .clicked()
             {
                 if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    self.project_path = path.to_str().unwrap().to_owned();
-
-                    let (diffs, stats) = get_diffs(self.project_path.clone());
-                    if diffs.is_empty() {
+                    self.app_data = AppData::new(path);
+                    if self.app_data.is_none() {
                         self.show_no_diff_dialog = true;
                     }
-
-                    self.diffs = diffs;
-                    self.stats = Some(stats);
-                    self.selected_diff = self.diffs.first().cloned().or(None);
                 }
             }
 
@@ -70,28 +100,27 @@ impl MyApp {
                     });
             }
 
-            if !self.diffs.is_empty()
+            if self.app_data.is_some()
                 && ui
                     .button(RichText::new("Refresh").color(Color32::WHITE))
                     .clicked()
             {
-                let (diffs, stats) = get_diffs(self.project_path.clone());
-                self.diffs = diffs;
-                self.stats = Some(stats);
-                self.selected_diff = self.diffs.first().cloned().or(None);
+                if let Some(app_data) = &mut self.app_data {
+                    app_data.refresh();
+                }
             }
         });
+
         ui.separator();
     }
 
     fn project_area(&mut self, ui: &mut Ui) {
-        if !self.diffs.is_empty() {
-            ui.heading(RichText::new(self.project_path.clone()).color(Color32::WHITE));
+        if let Some(app_data) = &mut self.app_data {
+            ui.heading(RichText::new(app_data.project_path.clone()).color(Color32::WHITE));
             ui.label(
                 RichText::new(
-                    self.stats
-                        .as_ref()
-                        .unwrap()
+                    app_data
+                        .stats
                         .to_buf(DiffStatsFormat::SHORT, 100)
                         .unwrap()
                         .as_str()
@@ -100,58 +129,45 @@ impl MyApp {
                 .color(Color32::WHITE),
             );
 
-            for diff in &self.diffs {
-                if self
-                    .selected_diff
-                    .as_ref()
-                    .map_or(PathBuf::default(), |d| d.old_file.clone())
-                    == diff.old_file
-                {
-                    if ui
-                        .button(diff.old_file.to_str().unwrap())
-                        .highlight()
-                        .clicked()
-                    {
-                        self.selected_diff = Some(diff.clone());
-                    }
+            for (i, diff) in app_data.diffs.iter().enumerate() {
+                if app_data.selected_diff_index == i as u32 {
+                    ui.button(diff.old_file.to_str().unwrap()).highlight();
                 } else if ui.button(diff.old_file.to_str().unwrap()).clicked() {
-                    self.selected_diff = Some(diff.clone());
+                    app_data.selected_diff_index = i as u32;
                 }
             }
             ui.separator();
         }
     }
 
-    fn diff_area(&self, ui: &mut Ui) {
-        if let Some(diff) = self.selected_diff.clone() {
-            let longest_line = self.get_longest_line();
+    fn diff_area(&self, ui: &mut Ui, diff: Diff) {
+        let longest_line = self.get_longest_line(diff.clone());
 
-            ScrollArea::vertical()
-                .auto_shrink([false, false])
-                .show(ui, |ui| {
-                    for line in &diff.lines {
-                        for header in &diff.headers {
-                            if header.line == line.new_lineno.unwrap_or(0)
-                                && line.origin != '+'
-                                && line.origin != '-'
-                            {
-                                let (green_label, white_label) = header.to_labels();
-                                ui.horizontal(|ui| {
-                                    ui.add(green_label);
-                                    ui.add(white_label);
-                                });
-                            }
+        ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                for line in &diff.lines {
+                    for header in &diff.headers {
+                        if header.line == line.new_lineno.unwrap_or(0)
+                            && line.origin != '+'
+                            && line.origin != '-'
+                        {
+                            let (green_label, white_label) = header.to_labels();
+                            ui.horizontal(|ui| {
+                                ui.add(green_label);
+                                ui.add(white_label);
+                            });
                         }
-
-                        let line_no_richtext = self.get_line_no_richtext(line, longest_line);
-
-                        ui.horizontal(|ui| {
-                            ui.label(line_no_richtext);
-                            ui.label(line.to_richtext());
-                        });
                     }
-                });
-        }
+
+                    let line_no_richtext = self.get_line_no_richtext(line, longest_line);
+
+                    ui.horizontal(|ui| {
+                        ui.label(line_no_richtext);
+                        ui.label(line.to_richtext());
+                    });
+                }
+            });
     }
 
     fn get_line_no_richtext(&self, line: &Line, longest_line: u32) -> RichText {
@@ -168,9 +184,9 @@ impl MyApp {
         RichText::new(line_no).color(Color32::GRAY).monospace()
     }
 
-    fn get_longest_line(&self) -> u32 {
+    fn get_longest_line(&self, diff: Diff) -> u32 {
         let mut longest_line = 0;
-        for line in &self.selected_diff.clone().unwrap().lines {
+        for line in &diff.lines {
             let line_no = match line.origin {
                 '+' => line.new_lineno.unwrap(),
                 '-' => line.old_lineno.unwrap(),
