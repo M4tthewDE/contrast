@@ -55,11 +55,13 @@ impl MyApp {
 
             if !self.diffs.is_empty()
                 && ui
-                    .button(RichText::new("Reset").color(Color32::WHITE))
+                    .button(RichText::new("Refresh").color(Color32::WHITE))
                     .clicked()
             {
-                self.diffs = Vec::new();
-                self.shown_diff = None;
+                let (diffs, stats) = get_diffs(self.project_path.clone());
+                self.diffs = diffs;
+                self.stats = Some(stats);
+                self.shown_diff = self.diffs.first().cloned().or(None);
             }
         });
         ui.separator();
