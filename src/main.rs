@@ -468,32 +468,33 @@ fn get_diffs(path: String) -> Result<(Vec<Diff>, DiffStats), DiffParsingError> {
     diffs
         .foreach(
             &mut |_delta, _num| {
-                if let Some(old_file) = _delta.old_file().path() {
-                    if let Some(new_file) = _delta.new_file().path() {
-                        if let Some(header) = header_groups.borrow().first() {
-                            if let Some(lines) = line_groups.borrow().first() {
-                                let diff = Diff::new(
-                                    old_file.to_path_buf(),
-                                    new_file.to_path_buf(),
-                                    header.to_vec(),
-                                    lines.to_vec(),
-                                );
-                                result.push(diff);
-                            } else {
-                                return false;
-                            }
-                        } else {
-                            return false;
-                        }
-                    } else {
-                        return false;
-                    }
-                } else {
+                let Some(old_file) = _delta.old_file().path() else {
                     return false;
-                }
+                };
 
-                header_groups.borrow_mut().remove(0);
-                line_groups.borrow_mut().remove(0);
+                let Some(new_file) = _delta.new_file().path() else {
+                    return false;
+                };
+                let mut hg = header_groups.borrow_mut();
+                let Some(headers) = hg.first() else {
+                    return false;
+                };
+
+                let mut lg = line_groups.borrow_mut();
+                let Some(lines) = lg.first() else {
+                    return false;
+                };
+
+                let diff = Diff::new(
+                    old_file.to_path_buf(),
+                    new_file.to_path_buf(),
+                    headers.to_vec(),
+                    lines.to_vec(),
+                );
+                result.push(diff);
+
+                hg.remove(0);
+                lg.remove(0);
                 true
             },
             None,
