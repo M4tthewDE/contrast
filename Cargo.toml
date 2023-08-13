@@ -2,6 +2,12 @@
 name = "contrast"
 version = "0.1.0"
 edition = "2021"
+authors = ["m4tthewde <mattider2@gmail.com>"]
+license = "GPL-3.0"
+description = "A simple diff viewer for Git."
+readme = "README.md"
+homepage = "https://github.com/m4tthewde/contrast"
+repository = "https://github.com/m4tthewde/contrast"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
