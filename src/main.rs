@@ -22,7 +22,6 @@ fn main() -> Result<(), eframe::Error> {
 #[derive(Default)]
 struct MyApp {
     app_data: Option<AppData>,
-    show_no_diff_dialog: bool,
     show_err_dialog: bool,
     error_information: String,
 }
@@ -122,17 +121,6 @@ impl MyApp {
                         },
                     }
                 }
-            }
-
-            if self.show_no_diff_dialog {
-                Window::new("No diff found.")
-                    .collapsible(false)
-                    .resizable(true)
-                    .show(ctx, |ui| {
-                        if ui.button("Close").clicked() {
-                            self.show_no_diff_dialog = false;
-                        }
-                    });
             }
 
             if self.show_err_dialog {
