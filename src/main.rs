@@ -105,40 +105,38 @@ impl MyApp {
     fn diff_area(&self, ui: &mut Ui) {
         if let Some(diff) = self.shown_diff.clone() {
             ScrollArea::vertical().show(ui, |ui| {
-                ui.vertical(|ui| {
-                    for line in &diff.lines {
-                        for header in &diff.headers {
-                            if header.line == line.new_lineno.unwrap_or(0)
-                                && line.origin != '+'
-                                && line.origin != '-'
-                            {
-                                let (green_label, white_label) = header.to_labels();
-                                ui.horizontal(|ui| {
-                                    ui.add(green_label);
-                                    ui.add(white_label);
-                                });
-                            }
+                for line in &diff.lines {
+                    for header in &diff.headers {
+                        if header.line == line.new_lineno.unwrap_or(0)
+                            && line.origin != '+'
+                            && line.origin != '-'
+                        {
+                            let (green_label, white_label) = header.to_labels();
+                            ui.horizontal(|ui| {
+                                ui.add(green_label);
+                                ui.add(white_label);
+                            });
                         }
-
-                        ui.horizontal(|ui| {
-                            match line.origin {
-                                '+' => ui.label(
-                                    RichText::new(line.new_lineno.unwrap().to_string())
-                                        .color(Color32::GRAY),
-                                ),
-                                '-' => ui.label(
-                                    RichText::new(line.old_lineno.unwrap().to_string())
-                                        .color(Color32::GRAY),
-                                ),
-                                _ => ui.label(
-                                    RichText::new(line.new_lineno.unwrap().to_string())
-                                        .color(Color32::GRAY),
-                                ),
-                            };
-                            ui.label(line.to_richtext());
-                        });
                     }
-                })
+
+                    ui.horizontal(|ui| {
+                        match line.origin {
+                            '+' => ui.label(
+                                RichText::new(line.new_lineno.unwrap().to_string())
+                                    .color(Color32::GRAY),
+                            ),
+                            '-' => ui.label(
+                                RichText::new(line.old_lineno.unwrap().to_string())
+                                    .color(Color32::GRAY),
+                            ),
+                            _ => ui.label(
+                                RichText::new(line.new_lineno.unwrap().to_string())
+                                    .color(Color32::GRAY),
+                            ),
+                        };
+                        ui.label(line.to_richtext());
+                    });
+                }
             });
         }
     }
