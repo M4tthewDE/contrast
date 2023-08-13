@@ -331,7 +331,7 @@ impl Line {
 
 impl fmt::Display for Line {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}{}", self.origin, self.content)
+        write!(f, "{} {}", self.origin, self.content)
     }
 }
 
