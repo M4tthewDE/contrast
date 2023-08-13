@@ -35,7 +35,6 @@ struct AppData {
 }
 
 enum AppDataCreationError {
-    NoDiffs,
     Parsing,
 }
 
@@ -47,10 +46,6 @@ impl AppData {
             .to_owned();
         let (diffs, stats) =
             git::get_diffs(project_path.clone()).map_err(|_| AppDataCreationError::Parsing)?;
-
-        if diffs.is_empty() {
-            return Err(AppDataCreationError::NoDiffs);
-        }
 
         Ok(AppData {
             project_path,
@@ -93,6 +88,12 @@ impl eframe::App for MyApp {
             self.selection_area(ctx, ui);
             self.project_area(ui);
 
+            if let Some(app_data) = &self.app_data {
+                if !app_data.diffs.is_empty() {
+                    return;
+                }
+            }
+
             ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
                 self.files_area(ui);
                 self.diff_area(ui);
@@ -115,7 +116,6 @@ impl MyApp {
                     match AppData::new(path) {
                         Ok(app_data) => self.app_data = Some(app_data),
                         Err(err) => match err {
-                            AppDataCreationError::NoDiffs => self.show_no_diff_dialog = true,
                             AppDataCreationError::Parsing => {
                                 self.show_error("Parsing failed!".to_owned())
                             }
@@ -186,6 +186,7 @@ impl MyApp {
             let Some(diff) = app_data.get_selected_diff() else {
                 return;
             };
+
             if diff.lines.is_empty() {
                 ui.label(RichText::new("No content").color(Color32::GRAY));
                 return;
