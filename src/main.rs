@@ -1,5 +1,5 @@
 use core::fmt;
-use egui::{Color32, Label, RichText, ScrollArea, Ui};
+use egui::{Color32, Label, RichText, ScrollArea, Ui, Window};
 use git2::{Delta, DiffStats, DiffStatsFormat, Repository};
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
@@ -22,12 +22,13 @@ struct MyApp {
     diffs: Vec<Diff>,
     stats: Option<DiffStats>,
     shown_diff: Option<Diff>,
+    show_no_diff_dialog: bool,
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.selection_area(ui);
+            self.selection_area(ctx, ui);
             self.project_area(ui);
             self.diff_area(ui);
         });
@@ -35,7 +36,7 @@ impl eframe::App for MyApp {
 }
 
 impl MyApp {
-    fn selection_area(&mut self, ui: &mut Ui) {
+    fn selection_area(&mut self, ctx: &egui::Context, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.heading(RichText::new("Diff Viewer").color(Color32::WHITE));
             ui.separator();
@@ -47,10 +48,24 @@ impl MyApp {
                 if let Some(path) = rfd::FileDialog::new().pick_folder() {
                     self.project_path = path.clone();
                     let (diffs, stats) = get_diffs(path.clone());
+                    if diffs.is_empty() {
+                        self.show_no_diff_dialog = true;
+                    }
                     self.diffs = diffs;
                     self.stats = Some(stats);
                     self.shown_diff = self.diffs.first().cloned().or(None);
                 }
+            }
+
+            if self.show_no_diff_dialog {
+                Window::new("No diff found.")
+                    .collapsible(false)
+                    .resizable(true)
+                    .show(ctx, |ui| {
+                        if ui.button("Close").clicked() {
+                            self.show_no_diff_dialog = false;
+                        }
+                    });
             }
 
             if !self.diffs.is_empty()
