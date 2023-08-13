@@ -1,5 +1,5 @@
 [package]
-name = "contrast-diff"
+name = "contrast-diff-viewer"
 version = "0.1.0"
 edition = "2021"
 authors = ["m4tthewde <mattider2@gmail.com>"]
