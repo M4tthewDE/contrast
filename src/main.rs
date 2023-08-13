@@ -20,6 +20,8 @@ fn main() -> Result<(), eframe::Error> {
 struct MyApp {
     app_data: Option<AppData>,
     show_no_diff_dialog: bool,
+    show_err_dialog: bool,
+    error_information: String,
 }
 
 struct AppData {
@@ -29,16 +31,25 @@ struct AppData {
     selected_diff_index: usize,
 }
 
+enum AppDataCreationError {
+    NoDiffs,
+    Parsing,
+}
+
 impl AppData {
-    fn new(path: PathBuf) -> Option<AppData> {
-        let project_path = path.to_str()?.to_owned();
-        let (diffs, stats) = get_diffs(project_path.clone()).ok()?;
+    fn new(path: PathBuf) -> Result<AppData, AppDataCreationError> {
+        let project_path = path
+            .to_str()
+            .ok_or(AppDataCreationError::Parsing)?
+            .to_owned();
+        let (diffs, stats) =
+            get_diffs(project_path.clone()).map_err(|_| AppDataCreationError::Parsing)?;
 
         if diffs.is_empty() {
-            return None;
+            return Err(AppDataCreationError::NoDiffs);
         }
 
-        Some(AppData {
+        Ok(AppData {
             project_path,
             diffs,
             stats,
@@ -99,9 +110,14 @@ impl MyApp {
                 .clicked()
             {
                 if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    self.app_data = AppData::new(path);
-                    if self.app_data.is_none() {
-                        self.show_no_diff_dialog = true;
+                    match AppData::new(path) {
+                        Ok(app_data) => self.app_data = Some(app_data),
+                        Err(err) => match err {
+                            AppDataCreationError::NoDiffs => self.show_no_diff_dialog = true,
+                            AppDataCreationError::Parsing => {
+                                self.show_error("Parsing failed!".to_owned())
+                            }
+                        },
                     }
                 }
             }
@@ -117,6 +133,10 @@ impl MyApp {
                     });
             }
 
+            if self.show_err_dialog {
+                self.error_dialog(ctx);
+            }
+
             if self.app_data.is_some()
                 && ui
                     .button(RichText::new("Refresh").color(Color32::WHITE))
@@ -124,7 +144,7 @@ impl MyApp {
             {
                 if let Some(app_data) = &mut self.app_data {
                     if app_data.refresh().is_err() {
-                        // TODO: show error dialog
+                        self.show_error("Refresh failed!".to_owned());
                     };
                 }
             }
@@ -208,6 +228,24 @@ impl MyApp {
         }
 
         longest_line
+    }
+
+    fn show_error(&mut self, information: String) {
+        self.error_information = information;
+        self.show_err_dialog = true;
+    }
+
+    fn error_dialog(&mut self, ctx: &egui::Context) {
+        Window::new("Error")
+            .collapsible(false)
+            .resizable(true)
+            .show(ctx, |ui| {
+                ui.label(RichText::new(self.error_information.clone()).strong());
+                if ui.button("Close").clicked() {
+                    self.error_information = "".to_owned();
+                    self.show_err_dialog = false;
+                }
+            });
     }
 }
 
