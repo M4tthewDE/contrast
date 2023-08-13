@@ -69,9 +69,8 @@ impl AppData {
         Ok(())
     }
 
-    fn get_selected_diff(&self) -> &Diff {
-        // this can never fail (surely)
-        self.diffs.get(self.selected_diff_index).unwrap()
+    fn get_selected_diff(&self) -> Option<&Diff> {
+        self.diffs.get(self.selected_diff_index)
     }
 
     fn get_stats_richtext(&self) -> RichText {
@@ -184,13 +183,15 @@ impl MyApp {
 
     fn diff_area(&self, ui: &mut Ui) {
         if let Some(app_data) = &self.app_data {
-            let diff = app_data.get_selected_diff();
-            let longest_line = self.get_longest_line(diff.clone());
-
+            let Some(diff) = app_data.get_selected_diff() else {
+                return;
+            };
             if diff.lines.is_empty() {
                 ui.label(RichText::new("No content").color(Color32::GRAY));
                 return;
             }
+
+            let longest_line = self.get_longest_line(diff.clone());
 
             ui.vertical(|ui| {
                 ScrollArea::both()
