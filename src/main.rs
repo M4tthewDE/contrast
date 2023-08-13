@@ -32,7 +32,7 @@ struct AppData {
 impl AppData {
     fn new(path: PathBuf) -> Option<AppData> {
         let project_path = path.to_str()?.to_owned();
-        let (diffs, stats) = get_diffs(project_path.clone());
+        let (diffs, stats) = get_diffs(project_path.clone()).ok()?;
 
         if diffs.is_empty() {
             return None;
@@ -46,11 +46,13 @@ impl AppData {
         })
     }
 
-    fn refresh(&mut self) {
-        let (diffs, stats) = get_diffs(self.project_path.clone());
+    fn refresh(&mut self) -> Result<(), DiffParsingError> {
+        let (diffs, stats) = get_diffs(self.project_path.clone())?;
         self.diffs = diffs;
         self.stats = stats;
         self.selected_diff_index = 0;
+
+        Ok(())
     }
 
     fn get_selected_diff(&self) -> &Diff {
@@ -121,7 +123,9 @@ impl MyApp {
                     .clicked()
             {
                 if let Some(app_data) = &mut self.app_data {
-                    app_data.refresh();
+                    if app_data.refresh().is_err() {
+                        // TODO: show error dialog
+                    };
                 }
             }
         });
@@ -289,6 +293,7 @@ struct Header {
     line: u32,
 }
 
+#[derive(Debug)]
 struct HeaderParserError;
 
 impl Header {
@@ -377,11 +382,14 @@ impl fmt::Display for Line {
     }
 }
 
-fn get_diffs(path: String) -> (Vec<Diff>, DiffStats) {
-    let repo = Repository::open(path).expect("Error opening repository");
+#[derive(Debug)]
+struct DiffParsingError;
+
+fn get_diffs(path: String) -> Result<(Vec<Diff>, DiffStats), DiffParsingError> {
+    let repo = Repository::open(path).map_err(|_| DiffParsingError)?;
     let diffs = repo
         .diff_index_to_workdir(None, None)
-        .expect("Error getting diff");
+        .map_err(|_| DiffParsingError)?;
 
     let line_groups = Rc::new(RefCell::new(Vec::new()));
     diffs
@@ -392,26 +400,37 @@ fn get_diffs(path: String) -> (Vec<Diff>, DiffStats) {
             },
             None,
             None,
-            Some(&mut |_delta, _hunk, _line| {
-                let mut content = std::str::from_utf8(_line.content()).unwrap().to_string();
-                if content.ends_with('\n') {
-                    content.pop();
-                    if content.ends_with('\r') {
-                        content.pop();
-                    }
-                }
+            Some(
+                &mut |_delta, _hunk, _line| match std::str::from_utf8(_line.content()) {
+                    Ok(c) => {
+                        let mut content = c.to_string();
+                        if content.ends_with('\n') {
+                            content.pop();
+                            if content.ends_with('\r') {
+                                content.pop();
+                            }
+                        }
 
-                let line = Line::new(
-                    _line.old_lineno(),
-                    _line.new_lineno(),
-                    content,
-                    _line.origin(),
-                );
-                line_groups.borrow_mut().last_mut().unwrap().push(line);
-                true
-            }),
+                        let line = Line::new(
+                            _line.old_lineno(),
+                            _line.new_lineno(),
+                            content,
+                            _line.origin(),
+                        );
+
+                        match line_groups.borrow_mut().last_mut() {
+                            Some(last) => {
+                                last.push(line);
+                                true
+                            }
+                            None => false,
+                        }
+                    }
+                    Err(_) => false,
+                },
+            ),
         )
-        .unwrap();
+        .map_err(|_| DiffParsingError)?;
 
     let header_groups = Rc::new(RefCell::new(Vec::new()));
     diffs
@@ -430,28 +449,49 @@ fn get_diffs(path: String) -> (Vec<Diff>, DiffStats) {
                     }
                 }
 
-                // TODO: what are we doing if not? parsing should be aborted imo
-                if let Ok(header) = Header::new(content) {
-                    header_groups.borrow_mut().last_mut().unwrap().push(header);
+                match Header::new(content) {
+                    Ok(header) => match header_groups.borrow_mut().last_mut() {
+                        Some(last) => {
+                            last.push(header);
+                            true
+                        }
+                        None => false,
+                    },
+                    Err(_) => false,
                 }
-
-                true
             }),
             None,
         )
-        .unwrap();
+        .map_err(|_| DiffParsingError)?;
 
     let mut result = Vec::new();
     diffs
         .foreach(
             &mut |_delta, _num| {
-                let diff = Diff::new(
-                    _delta.old_file().path().unwrap().to_path_buf(),
-                    _delta.new_file().path().unwrap().to_path_buf(),
-                    header_groups.borrow().first().unwrap().to_vec(),
-                    line_groups.borrow().first().unwrap().to_vec(),
-                );
-                result.push(diff);
+                if let Some(old_file) = _delta.old_file().path() {
+                    if let Some(new_file) = _delta.new_file().path() {
+                        if let Some(header) = header_groups.borrow().first() {
+                            if let Some(lines) = line_groups.borrow().first() {
+                                let diff = Diff::new(
+                                    old_file.to_path_buf(),
+                                    new_file.to_path_buf(),
+                                    header.to_vec(),
+                                    lines.to_vec(),
+                                );
+                                result.push(diff);
+                            } else {
+                                return false;
+                            }
+                        } else {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+
                 header_groups.borrow_mut().remove(0);
                 line_groups.borrow_mut().remove(0);
                 true
@@ -460,9 +500,9 @@ fn get_diffs(path: String) -> (Vec<Diff>, DiffStats) {
             None,
             None,
         )
-        .unwrap();
+        .map_err(|_| DiffParsingError)?;
 
-    (result, diffs.stats().unwrap())
+    Ok((result, diffs.stats().map_err(|_| DiffParsingError)?))
 }
 
 #[cfg(test)]
@@ -471,7 +511,7 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let (diffs, _) = get_diffs(".".to_owned());
+        let (diffs, _) = get_diffs(".".to_owned()).unwrap();
         for diff in diffs {
             println!("{:#?}", diff);
         }
@@ -479,7 +519,8 @@ mod tests {
 
     #[test]
     fn parse_header() {
-        let header = Header::new("@@ -209,6 +222,33 @@ impl fmt::Display for Diff {".to_string());
+        let header =
+            Header::new("@@ -209,6 +222,33 @@ impl fmt::Display for Diff {".to_string()).unwrap();
         assert_eq!(header.line, 222)
     }
 }
