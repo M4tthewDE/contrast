@@ -18,10 +18,10 @@ fn main() -> Result<(), eframe::Error> {
 
 #[derive(Default)]
 struct MyApp {
-    project_path: PathBuf,
+    project_path: String,
     diffs: Vec<Diff>,
     stats: Option<DiffStats>,
-    shown_diff: Option<Diff>,
+    selected_diff: Option<Diff>,
     show_no_diff_dialog: bool,
 }
 
@@ -46,14 +46,16 @@ impl MyApp {
                 .clicked()
             {
                 if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    self.project_path = path.clone();
-                    let (diffs, stats) = get_diffs(path.clone());
+                    self.project_path = path.to_str().unwrap().to_owned();
+
+                    let (diffs, stats) = get_diffs(self.project_path.clone());
                     if diffs.is_empty() {
                         self.show_no_diff_dialog = true;
                     }
+
                     self.diffs = diffs;
                     self.stats = Some(stats);
-                    self.shown_diff = self.diffs.first().cloned().or(None);
+                    self.selected_diff = self.diffs.first().cloned().or(None);
                 }
             }
 
@@ -76,14 +78,15 @@ impl MyApp {
                 let (diffs, stats) = get_diffs(self.project_path.clone());
                 self.diffs = diffs;
                 self.stats = Some(stats);
-                self.shown_diff = self.diffs.first().cloned().or(None);
+                self.selected_diff = self.diffs.first().cloned().or(None);
             }
         });
         ui.separator();
     }
+
     fn project_area(&mut self, ui: &mut Ui) {
         if !self.diffs.is_empty() {
-            ui.heading(RichText::new(self.project_path.to_str().unwrap()).color(Color32::WHITE));
+            ui.heading(RichText::new(self.project_path.clone()).color(Color32::WHITE));
             ui.label(
                 RichText::new(
                     self.stats
@@ -99,7 +102,7 @@ impl MyApp {
 
             for diff in &self.diffs {
                 if self
-                    .shown_diff
+                    .selected_diff
                     .as_ref()
                     .map_or(PathBuf::default(), |d| d.old_file.clone())
                     == diff.old_file
@@ -109,10 +112,10 @@ impl MyApp {
                         .highlight()
                         .clicked()
                     {
-                        self.shown_diff = Some(diff.clone());
+                        self.selected_diff = Some(diff.clone());
                     }
                 } else if ui.button(diff.old_file.to_str().unwrap()).clicked() {
-                    self.shown_diff = Some(diff.clone());
+                    self.selected_diff = Some(diff.clone());
                 }
             }
             ui.separator();
@@ -120,7 +123,7 @@ impl MyApp {
     }
 
     fn diff_area(&self, ui: &mut Ui) {
-        if let Some(diff) = self.shown_diff.clone() {
+        if let Some(diff) = self.selected_diff.clone() {
             let longest_line = self.get_longest_line();
 
             ScrollArea::vertical()
@@ -167,7 +170,7 @@ impl MyApp {
 
     fn get_longest_line(&self) -> u32 {
         let mut longest_line = 0;
-        for line in &self.shown_diff.clone().unwrap().lines {
+        for line in &self.selected_diff.clone().unwrap().lines {
             let line_no = match line.origin {
                 '+' => line.new_lineno.unwrap(),
                 '-' => line.old_lineno.unwrap(),
@@ -242,11 +245,10 @@ impl fmt::Display for Diff {
             "diff --git a/{} b/{}",
             self.old_file.to_str().unwrap(),
             self.new_file.to_str().unwrap(),
-        )
-        .unwrap();
+        )?;
 
         for line in &self.lines {
-            write!(f, "{}", line).unwrap();
+            write!(f, "{}", line)?;
         }
 
         Ok(())
@@ -344,7 +346,7 @@ impl fmt::Display for Line {
     }
 }
 
-fn get_diffs(path: PathBuf) -> (Vec<Diff>, DiffStats) {
+fn get_diffs(path: String) -> (Vec<Diff>, DiffStats) {
     let repo = Repository::open(path).expect("Error opening repository");
     let diffs = repo
         .diff_index_to_workdir(None, None)
@@ -439,7 +441,7 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let (diffs, _) = get_diffs(PathBuf::from("."));
+        let (diffs, _) = get_diffs(".".to_owned());
         for diff in diffs {
             println!("{:#?}", diff);
         }
