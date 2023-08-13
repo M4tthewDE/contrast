@@ -1,6 +1,6 @@
 use core::fmt;
 use egui::{Color32, Label, RichText, ScrollArea, Ui, Window};
-use git2::{Delta, DiffStats, DiffStatsFormat, Repository};
+use git2::{Delta, DiffStats, Repository};
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 use eframe::egui;
@@ -136,8 +136,8 @@ impl MyApp {
 
             for (i, diff) in app_data.diffs.iter().enumerate() {
                 if app_data.selected_diff_index == i {
-                    ui.button(diff.old_file.to_str().unwrap()).highlight();
-                } else if ui.button(diff.old_file.to_str().unwrap()).clicked() {
+                    ui.button(diff.file_name()).highlight();
+                } else if ui.button(diff.file_name()).clicked() {
                     app_data.selected_diff_index = i;
                 }
             }
@@ -177,9 +177,9 @@ impl MyApp {
 
     fn get_line_no_richtext(&self, line: &Line, longest_line: u32) -> RichText {
         let mut line_no = match line.origin {
-            '+' => line.new_lineno.unwrap().to_string(),
-            '-' => line.old_lineno.unwrap().to_string(),
-            _ => line.new_lineno.unwrap().to_string(),
+            '+' => line.new_lineno.unwrap_or(0).to_string(),
+            '-' => line.old_lineno.unwrap_or(0).to_string(),
+            _ => line.new_lineno.unwrap_or(0).to_string(),
         };
 
         while line_no.len() != longest_line.to_string().len() {
@@ -193,9 +193,9 @@ impl MyApp {
         let mut longest_line = 0;
         for line in &diff.lines {
             let line_no = match line.origin {
-                '+' => line.new_lineno.unwrap(),
-                '-' => line.old_lineno.unwrap(),
-                _ => line.new_lineno.unwrap(),
+                '+' => line.new_lineno.unwrap_or(0),
+                '-' => line.old_lineno.unwrap_or(0),
+                _ => line.new_lineno.unwrap_or(0),
             };
 
             if line_no > longest_line {
@@ -257,6 +257,13 @@ impl Diff {
             lines,
         }
     }
+
+    fn file_name(&self) -> String {
+        self.old_file
+            .to_str()
+            .unwrap_or("Error fetching file name")
+            .to_owned()
+    }
 }
 
 impl fmt::Display for Diff {
@@ -264,8 +271,8 @@ impl fmt::Display for Diff {
         writeln!(
             f,
             "diff --git a/{} b/{}",
-            self.old_file.to_str().unwrap(),
-            self.new_file.to_str().unwrap(),
+            self.old_file.to_str().unwrap_or("Error fetching file name"),
+            self.new_file.to_str().unwrap_or("Error fetching file name"),
         )?;
 
         for line in &self.lines {
