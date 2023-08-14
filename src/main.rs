@@ -1,11 +1,13 @@
-use egui::{Align, Color32, Label, Layout, RichText, ScrollArea, Ui, Window};
+use egui::{Align, Color32, Layout, RichText, ScrollArea, Ui, Window};
 use std::path::PathBuf;
+use ui::{HeaderWidget, LineWidget};
 
-use git::{Diff, DiffParsingError, Header, Line, Stats};
+use git::{Diff, DiffParsingError, Stats};
 
 use eframe::egui;
 
 mod git;
+mod ui;
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -83,6 +85,7 @@ impl AppData {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
+            ctx.set_debug_on_hover(true);
             self.selection_area(ctx, ui);
             self.project_area(ui);
 
@@ -179,8 +182,7 @@ impl MyApp {
                 return;
             }
 
-            let longest_line = self.get_longest_line(diff.clone());
-
+            let longest_line = self.get_longest_line(diff);
             ui.vertical(|ui| {
                 ScrollArea::both()
                     .id_source("diff area")
@@ -192,41 +194,18 @@ impl MyApp {
                                     && line.origin != '+'
                                     && line.origin != '-'
                                 {
-                                    let (green_label, white_label) = header_to_labels(header);
-                                    ui.horizontal(|ui| {
-                                        ui.add(green_label);
-                                        ui.add(white_label);
-                                    });
+                                    ui.add(HeaderWidget::new(header.clone()));
                                 }
                             }
 
-                            let line_no_richtext = self.get_line_no_richtext(line, longest_line);
-
-                            ui.horizontal(|ui| {
-                                ui.label(line_no_richtext);
-                                ui.label(line_to_richtext(line));
-                            });
+                            ui.add(LineWidget::new(line.clone(), longest_line));
                         }
                     });
             });
         }
     }
 
-    fn get_line_no_richtext(&self, line: &Line, longest_line: u32) -> RichText {
-        let mut line_no = match line.origin {
-            '+' => line.new_lineno.unwrap_or(0).to_string(),
-            '-' => line.old_lineno.unwrap_or(0).to_string(),
-            _ => line.new_lineno.unwrap_or(0).to_string(),
-        };
-
-        while line_no.len() != longest_line.to_string().len() {
-            line_no = format!(" {}", line_no);
-        }
-
-        RichText::new(line_no).color(Color32::GRAY).monospace()
-    }
-
-    fn get_longest_line(&self, diff: Diff) -> u32 {
+    fn get_longest_line(&self, diff: &Diff) -> usize {
         let mut longest_line = 0;
         for line in &diff.lines {
             let line_no = match line.origin {
@@ -240,7 +219,7 @@ impl MyApp {
             }
         }
 
-        longest_line
+        longest_line.to_string().len()
     }
 
     fn show_error(&mut self, information: String) {
@@ -259,43 +238,5 @@ impl MyApp {
                     self.show_err_dialog = false;
                 }
             });
-    }
-}
-
-fn header_to_labels(header: &Header) -> (Label, Label) {
-    let green_part = header
-        .content
-        .split(' ')
-        .take(4)
-        .collect::<Vec<&str>>()
-        .join(" ");
-    let white_part = header
-        .content
-        .split(' ')
-        .skip(4)
-        .collect::<Vec<&str>>()
-        .join(" ");
-
-    let green_label = Label::new(
-        RichText::new(green_part)
-            .color(Color32::from_rgb(7, 138, 171))
-            .monospace(),
-    );
-    let white_label = Label::new(RichText::new(white_part).color(Color32::WHITE).monospace());
-
-    (green_label, white_label)
-}
-
-fn line_to_richtext(line: &Line) -> RichText {
-    RichText::new(line.to_string())
-        .monospace()
-        .color(line_color(line))
-}
-
-fn line_color(line: &Line) -> Color32 {
-    match line.origin {
-        '+' => Color32::GREEN,
-        '-' => Color32::RED,
-        _ => Color32::WHITE,
     }
 }
