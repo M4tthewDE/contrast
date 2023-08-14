@@ -87,7 +87,7 @@ impl eframe::App for MyApp {
             self.project_area(ui);
 
             if let Some(app_data) = &self.app_data {
-                if !app_data.diffs.is_empty() {
+                if app_data.diffs.is_empty() {
                     return;
                 }
             }
