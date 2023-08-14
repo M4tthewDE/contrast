@@ -1,6 +1,9 @@
 use egui::{Color32, Label, Response, RichText, Ui, Widget};
 
-use crate::git::{Header, Line};
+use crate::{
+    git::{Header, Line},
+    AppData,
+};
 
 pub struct LineWidget {
     max_digits: usize,
@@ -82,5 +85,23 @@ impl Widget for HeaderWidget {
             ui.add(white_label);
         })
         .response
+    }
+}
+
+pub struct ProjectAreaWidget {
+    app_data: AppData,
+}
+
+impl ProjectAreaWidget {
+    pub fn new(app_data: AppData) -> ProjectAreaWidget {
+        ProjectAreaWidget { app_data }
+    }
+}
+
+impl Widget for ProjectAreaWidget {
+    fn ui(self, ui: &mut Ui) -> Response {
+        ui.heading(RichText::new(self.app_data.project_path.clone()).color(Color32::WHITE));
+        ui.label(self.app_data.get_stats_richtext());
+        ui.separator()
     }
 }

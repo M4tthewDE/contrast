@@ -102,7 +102,7 @@ impl fmt::Display for Line {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Stats {
     pub files_changed: usize,
     pub insertions: usize,

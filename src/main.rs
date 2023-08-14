@@ -1,6 +1,6 @@
 use egui::{Align, Color32, Layout, RichText, ScrollArea, Ui, Window};
 use std::path::PathBuf;
-use ui::{HeaderWidget, LineWidget};
+use ui::{HeaderWidget, LineWidget, ProjectAreaWidget};
 
 use git::{Diff, DiffParsingError, Stats};
 
@@ -27,7 +27,8 @@ struct MyApp {
     error_information: String,
 }
 
-struct AppData {
+#[derive(Clone)]
+pub struct AppData {
     project_path: String,
     diffs: Vec<Diff>,
     stats: Stats,
@@ -85,11 +86,11 @@ impl AppData {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ctx.set_debug_on_hover(true);
             self.selection_area(ctx, ui);
-            self.project_area(ui);
 
             if let Some(app_data) = &self.app_data {
+                ui.add(ProjectAreaWidget::new(app_data.clone()));
+
                 if app_data.diffs.is_empty() {
                     return;
                 }
@@ -143,14 +144,6 @@ impl MyApp {
         });
 
         ui.separator();
-    }
-
-    fn project_area(&mut self, ui: &mut Ui) {
-        if let Some(app_data) = &mut self.app_data {
-            ui.heading(RichText::new(app_data.project_path.clone()).color(Color32::WHITE));
-            ui.label(app_data.get_stats_richtext());
-            ui.separator();
-        }
     }
 
     fn files_area(&mut self, ui: &mut Ui) {
