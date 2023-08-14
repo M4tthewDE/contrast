@@ -1,5 +1,4 @@
 use core::fmt;
-use egui::{Color32, Label, RichText};
 use git2::{DiffStats, Repository};
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
@@ -48,7 +47,7 @@ impl fmt::Display for Diff {
 
 #[derive(Debug, Clone)]
 pub struct Header {
-    content: String,
+    pub content: String,
     pub line: u32,
 }
 
@@ -70,30 +69,6 @@ impl Header {
             .map_err(|_| HeaderParserError)?;
 
         Ok(Header { content: raw, line })
-    }
-
-    pub fn to_labels(&self) -> (Label, Label) {
-        let green_part = self
-            .content
-            .split(' ')
-            .take(4)
-            .collect::<Vec<&str>>()
-            .join(" ");
-        let white_part = self
-            .content
-            .split(' ')
-            .skip(4)
-            .collect::<Vec<&str>>()
-            .join(" ");
-
-        let green_label = Label::new(
-            RichText::new(green_part)
-                .color(Color32::from_rgb(7, 138, 171))
-                .monospace(),
-        );
-        let white_label = Label::new(RichText::new(white_part).color(Color32::WHITE).monospace());
-
-        (green_label, white_label)
     }
 }
 
@@ -117,20 +92,6 @@ impl Line {
             new_lineno,
             content,
             origin,
-        }
-    }
-
-    pub fn to_richtext(&self) -> RichText {
-        RichText::new(self.to_string())
-            .monospace()
-            .color(self.color())
-    }
-
-    fn color(&self) -> Color32 {
-        match self.origin {
-            '+' => Color32::GREEN,
-            '-' => Color32::RED,
-            _ => Color32::WHITE,
         }
     }
 }

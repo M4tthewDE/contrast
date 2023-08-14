@@ -1,7 +1,7 @@
-use egui::{Align, Color32, Layout, RichText, ScrollArea, Ui, Window};
+use egui::{Align, Color32, Label, Layout, RichText, ScrollArea, Ui, Window};
 use std::path::PathBuf;
 
-use git::{Diff, DiffParsingError, Line, Stats};
+use git::{Diff, DiffParsingError, Header, Line, Stats};
 
 use eframe::egui;
 
@@ -192,7 +192,7 @@ impl MyApp {
                                     && line.origin != '+'
                                     && line.origin != '-'
                                 {
-                                    let (green_label, white_label) = header.to_labels();
+                                    let (green_label, white_label) = header_to_labels(header);
                                     ui.horizontal(|ui| {
                                         ui.add(green_label);
                                         ui.add(white_label);
@@ -204,7 +204,7 @@ impl MyApp {
 
                             ui.horizontal(|ui| {
                                 ui.label(line_no_richtext);
-                                ui.label(line.to_richtext());
+                                ui.label(line_to_richtext(line));
                             });
                         }
                     });
@@ -259,5 +259,43 @@ impl MyApp {
                     self.show_err_dialog = false;
                 }
             });
+    }
+}
+
+fn header_to_labels(header: &Header) -> (Label, Label) {
+    let green_part = header
+        .content
+        .split(' ')
+        .take(4)
+        .collect::<Vec<&str>>()
+        .join(" ");
+    let white_part = header
+        .content
+        .split(' ')
+        .skip(4)
+        .collect::<Vec<&str>>()
+        .join(" ");
+
+    let green_label = Label::new(
+        RichText::new(green_part)
+            .color(Color32::from_rgb(7, 138, 171))
+            .monospace(),
+    );
+    let white_label = Label::new(RichText::new(white_part).color(Color32::WHITE).monospace());
+
+    (green_label, white_label)
+}
+
+fn line_to_richtext(line: &Line) -> RichText {
+    RichText::new(line.to_string())
+        .monospace()
+        .color(line_color(line))
+}
+
+fn line_color(line: &Line) -> Color32 {
+    match line.origin {
+        '+' => Color32::GREEN,
+        '-' => Color32::RED,
+        _ => Color32::WHITE,
     }
 }
