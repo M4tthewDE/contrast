@@ -1,8 +1,7 @@
 use egui::{Align, Color32, Layout, RichText, ScrollArea, Ui, Window};
-use git2::DiffStats;
 use std::path::PathBuf;
 
-use git::{Diff, DiffParsingError, Line};
+use git::{Diff, DiffParsingError, Line, Stats};
 
 use eframe::egui;
 
@@ -29,7 +28,7 @@ struct MyApp {
 struct AppData {
     project_path: String,
     diffs: Vec<Diff>,
-    stats: DiffStats,
+    stats: Stats,
     selected_diff_index: usize,
 }
 
@@ -68,9 +67,9 @@ impl AppData {
     }
 
     fn get_stats_richtext(&self) -> RichText {
-        let file_changed_count = self.stats.files_changed();
-        let insertion_count = self.stats.insertions();
-        let deletion_count = self.stats.deletions();
+        let file_changed_count = self.stats.files_changed;
+        let insertion_count = self.stats.insertions;
+        let deletion_count = self.stats.deletions;
 
         let content = format!(
             "{} file(s) changed, {} insertions(+), {} deletions(-)\n",

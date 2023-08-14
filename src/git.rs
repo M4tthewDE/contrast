@@ -142,9 +142,26 @@ impl fmt::Display for Line {
 }
 
 #[derive(Debug)]
+pub struct Stats {
+    pub files_changed: usize,
+    pub insertions: usize,
+    pub deletions: usize,
+}
+
+impl Stats {
+    fn new(diff_stats: DiffStats) -> Stats {
+        Stats {
+            files_changed: diff_stats.files_changed(),
+            insertions: diff_stats.insertions(),
+            deletions: diff_stats.deletions(),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct DiffParsingError;
 
-pub fn get_diffs(path: String) -> Result<(Vec<Diff>, DiffStats), DiffParsingError> {
+pub fn get_diffs(path: String) -> Result<(Vec<Diff>, Stats), DiffParsingError> {
     let repo = Repository::open(path).map_err(|_| DiffParsingError)?;
     let diffs = repo
         .diff_index_to_workdir(None, None)
@@ -262,7 +279,10 @@ pub fn get_diffs(path: String) -> Result<(Vec<Diff>, DiffStats), DiffParsingErro
         )
         .map_err(|_| DiffParsingError)?;
 
-    Ok((result, diffs.stats().map_err(|_| DiffParsingError)?))
+    Ok((
+        result,
+        Stats::new(diffs.stats().map_err(|_| DiffParsingError)?),
+    ))
 }
 
 #[cfg(test)]
