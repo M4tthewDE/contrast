@@ -141,26 +141,6 @@ impl fmt::Display for Line {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let (diffs, _) = get_diffs(".".to_owned()).unwrap();
-        for diff in diffs {
-            println!("{:#?}", diff);
-        }
-    }
-
-    #[test]
-    fn parse_header() {
-        let header =
-            Header::new("@@ -209,6 +222,33 @@ impl fmt::Display for Diff {".to_string()).unwrap();
-        assert_eq!(header.line, 222)
-    }
-}
-
 #[derive(Debug)]
 pub struct DiffParsingError;
 
@@ -283,4 +263,24 @@ pub fn get_diffs(path: String) -> Result<(Vec<Diff>, DiffStats), DiffParsingErro
         .map_err(|_| DiffParsingError)?;
 
     Ok((result, diffs.stats().map_err(|_| DiffParsingError)?))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn it_works() {
+        let (diffs, _) = get_diffs(".".to_owned()).unwrap();
+        for diff in diffs {
+            println!("{:#?}", diff);
+        }
+    }
+
+    #[test]
+    fn parse_header() {
+        let header =
+            Header::new("@@ -209,6 +222,33 @@ impl fmt::Display for Diff {".to_string()).unwrap();
+        assert_eq!(header.line, 222)
+    }
 }
