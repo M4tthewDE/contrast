@@ -26,6 +26,23 @@ impl Diff {
             .unwrap_or("Error fetching file name")
             .to_owned()
     }
+
+    pub fn get_longest_line(&self) -> usize {
+        let mut longest_line = 0;
+        for line in &self.lines {
+            let line_no = match line.origin {
+                '+' => line.new_lineno.unwrap_or(0),
+                '-' => line.old_lineno.unwrap_or(0),
+                _ => line.new_lineno.unwrap_or(0),
+            };
+
+            if line_no > longest_line {
+                longest_line = line_no;
+            }
+        }
+
+        longest_line.to_string().len()
+    }
 }
 
 impl fmt::Display for Diff {

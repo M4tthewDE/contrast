@@ -1,17 +1,17 @@
-use egui::{Color32, Label, Response, RichText, Ui, Widget};
+use egui::{Color32, Label, Response, RichText, ScrollArea, Ui, Widget};
 
 use crate::{
-    git::{Header, Line},
+    git::{Diff, Header, Line},
     AppData,
 };
 
-pub struct LineWidget {
+struct LineWidget {
     max_digits: usize,
     line: Line,
 }
 
 impl LineWidget {
-    pub fn new(line: Line, max_digits: usize) -> LineWidget {
+    fn new(line: Line, max_digits: usize) -> LineWidget {
         LineWidget { line, max_digits }
     }
 }
@@ -46,12 +46,12 @@ impl Widget for LineWidget {
     }
 }
 
-pub struct HeaderWidget {
+struct HeaderWidget {
     header: Header,
 }
 
 impl HeaderWidget {
-    pub fn new(header: Header) -> HeaderWidget {
+    fn new(header: Header) -> HeaderWidget {
         HeaderWidget { header }
     }
 }
@@ -103,5 +103,46 @@ impl Widget for ProjectAreaWidget {
         ui.heading(RichText::new(self.app_data.project_path.clone()).color(Color32::WHITE));
         ui.label(self.app_data.get_stats_richtext());
         ui.separator()
+    }
+}
+
+pub struct DiffAreaWidget {
+    diff: Diff,
+}
+
+impl DiffAreaWidget {
+    pub fn new(diff: Diff) -> DiffAreaWidget {
+        DiffAreaWidget { diff }
+    }
+}
+
+impl Widget for DiffAreaWidget {
+    fn ui(self, ui: &mut Ui) -> Response {
+        if self.diff.lines.is_empty() {
+            return ui.label(RichText::new("No content").color(Color32::GRAY));
+        }
+
+        let longest_line = self.diff.get_longest_line();
+
+        ui.vertical(|ui| {
+            ScrollArea::both()
+                .id_source("diff area")
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    for line in &self.diff.lines {
+                        for header in &self.diff.headers {
+                            if header.line == line.new_lineno.unwrap_or(0)
+                                && line.origin != '+'
+                                && line.origin != '-'
+                            {
+                                ui.add(HeaderWidget::new(header.clone()));
+                            }
+                        }
+
+                        ui.add(LineWidget::new(line.clone(), longest_line));
+                    }
+                });
+        })
+        .response
     }
 }

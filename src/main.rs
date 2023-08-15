@@ -1,6 +1,6 @@
 use egui::{Align, Color32, Layout, RichText, ScrollArea, Ui, Window};
 use std::path::PathBuf;
-use ui::{HeaderWidget, LineWidget, ProjectAreaWidget};
+use ui::{DiffAreaWidget, ProjectAreaWidget};
 
 use git::{Diff, DiffParsingError, Stats};
 
@@ -98,7 +98,12 @@ impl eframe::App for MyApp {
 
             ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
                 self.files_area(ui);
-                self.diff_area(ui);
+
+                if let Some(app_data) = &self.app_data {
+                    if let Some(diff) = app_data.get_selected_diff() {
+                        ui.add(DiffAreaWidget::new(diff.clone()));
+                    }
+                }
             });
         });
     }
@@ -162,57 +167,6 @@ impl MyApp {
                     });
             }
         });
-    }
-
-    fn diff_area(&self, ui: &mut Ui) {
-        if let Some(app_data) = &self.app_data {
-            let Some(diff) = app_data.get_selected_diff() else {
-                return;
-            };
-
-            if diff.lines.is_empty() {
-                ui.label(RichText::new("No content").color(Color32::GRAY));
-                return;
-            }
-
-            let longest_line = self.get_longest_line(diff);
-            ui.vertical(|ui| {
-                ScrollArea::both()
-                    .id_source("diff area")
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        for line in &diff.lines {
-                            for header in &diff.headers {
-                                if header.line == line.new_lineno.unwrap_or(0)
-                                    && line.origin != '+'
-                                    && line.origin != '-'
-                                {
-                                    ui.add(HeaderWidget::new(header.clone()));
-                                }
-                            }
-
-                            ui.add(LineWidget::new(line.clone(), longest_line));
-                        }
-                    });
-            });
-        }
-    }
-
-    fn get_longest_line(&self, diff: &Diff) -> usize {
-        let mut longest_line = 0;
-        for line in &diff.lines {
-            let line_no = match line.origin {
-                '+' => line.new_lineno.unwrap_or(0),
-                '-' => line.old_lineno.unwrap_or(0),
-                _ => line.new_lineno.unwrap_or(0),
-            };
-
-            if line_no > longest_line {
-                longest_line = line_no;
-            }
-        }
-
-        longest_line.to_string().len()
     }
 
     fn show_error(&mut self, information: String) {
