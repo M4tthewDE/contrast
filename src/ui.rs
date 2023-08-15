@@ -1,7 +1,7 @@
 use egui::{Color32, Label, Response, RichText, ScrollArea, Ui, Widget};
 
 use crate::{
-    git::{Diff, Header, Line},
+    git::{Diff, Header, Line, Stats},
     AppData,
 };
 
@@ -101,7 +101,7 @@ impl ProjectAreaWidget {
 impl Widget for ProjectAreaWidget {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.heading(RichText::new(self.app_data.project_path.clone()).color(Color32::WHITE));
-        ui.label(self.app_data.get_stats_richtext());
+        ui.add(StatsWidget::new(self.app_data.stats));
         ui.separator()
     }
 }
@@ -144,5 +144,31 @@ impl Widget for DiffAreaWidget {
                 });
         })
         .response
+    }
+}
+
+pub struct StatsWidget {
+    stats: Stats,
+}
+
+impl StatsWidget {
+    pub fn new(stats: Stats) -> StatsWidget {
+        StatsWidget { stats }
+    }
+}
+
+impl Widget for StatsWidget {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let file_changed_count = self.stats.files_changed;
+        let insertion_count = self.stats.insertions;
+        let deletion_count = self.stats.deletions;
+
+        let content = format!(
+            "{} file(s) changed, {} insertions(+), {} deletions(-)\n",
+            file_changed_count, insertion_count, deletion_count
+        );
+
+        let richtext = RichText::new(content).color(Color32::WHITE);
+        ui.label(richtext)
     }
 }

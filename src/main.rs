@@ -68,19 +68,6 @@ impl AppData {
     fn get_selected_diff(&self) -> Option<&Diff> {
         self.diffs.get(self.selected_diff_index)
     }
-
-    fn get_stats_richtext(&self) -> RichText {
-        let file_changed_count = self.stats.files_changed;
-        let insertion_count = self.stats.insertions;
-        let deletion_count = self.stats.deletions;
-
-        let content = format!(
-            "{} file(s) changed, {} insertions(+), {} deletions(-)\n",
-            file_changed_count, insertion_count, deletion_count
-        );
-
-        RichText::new(content).color(Color32::WHITE)
-    }
 }
 
 impl eframe::App for MyApp {
