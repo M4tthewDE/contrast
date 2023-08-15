@@ -86,6 +86,7 @@ impl eframe::App for MyApp {
             ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
                 self.files_area(ui);
 
+                ui.separator();
                 if let Some(app_data) = &self.app_data {
                     if let Some(diff) = app_data.get_selected_diff() {
                         ui.add(DiffAreaWidget::new(diff.clone()));
