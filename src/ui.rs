@@ -1,4 +1,7 @@
-use egui::{Color32, Layout, Response, RichText, ScrollArea, TextEdit, TextStyle, Ui, Widget};
+use egui::{
+    text::LayoutJob, Color32, FontFamily, FontId, Layout, Response, RichText, ScrollArea, TextEdit,
+    TextFormat, TextStyle, Ui, Widget,
+};
 
 use crate::{
     git::{Diff, Header, Line, Stats},
@@ -118,6 +121,18 @@ impl CodeWidget {
     }
 }
 
+fn layout_job(text: &str) -> LayoutJob {
+    let mut job = LayoutJob::default();
+    job.wrap.max_width = f32::INFINITY;
+
+    job.append(
+        text,
+        0.0,
+        TextFormat::simple(FontId::new(12.0, FontFamily::Monospace), Color32::WHITE),
+    );
+    job
+}
+
 impl Widget for CodeWidget {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut content = "".to_owned();
@@ -133,14 +148,21 @@ impl Widget for CodeWidget {
             content.push_str(format!("{}\n", line.content.as_str()).as_str());
         }
 
+        let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
+            let layout_job: egui::text::LayoutJob = layout_job(string);
+            ui.fonts(|f| f.layout_job(layout_job))
+        };
+
         ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
             ui.add(
                 TextEdit::multiline(&mut content)
                     .font(TextStyle::Monospace)
                     .desired_width(f32::INFINITY)
+                    .frame(false)
                     .code_editor()
                     .text_color(Color32::WHITE)
-                    .lock_focus(true),
+                    .lock_focus(true)
+                    .layouter(&mut layouter),
             );
         })
         .response
