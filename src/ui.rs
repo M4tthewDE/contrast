@@ -1,22 +1,22 @@
-use egui::{Color32, Label, Response, RichText, ScrollArea, Ui, Widget};
+use egui::{Color32, Layout, Response, RichText, ScrollArea, TextEdit, TextStyle, Ui, Widget};
 
 use crate::{
     git::{Diff, Header, Line, Stats},
     AppData,
 };
 
-struct LineWidget {
+struct LineNumberWidget {
     max_digits: usize,
     line: Line,
 }
 
-impl LineWidget {
-    fn new(line: Line, max_digits: usize) -> LineWidget {
-        LineWidget { line, max_digits }
+impl LineNumberWidget {
+    fn new(line: Line, max_digits: usize) -> LineNumberWidget {
+        LineNumberWidget { line, max_digits }
     }
 }
 
-impl Widget for LineWidget {
+impl Widget for LineNumberWidget {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut line_no = match self.line.origin {
             '+' => self.line.new_lineno.unwrap_or(0).to_string(),
@@ -29,60 +29,119 @@ impl Widget for LineWidget {
         }
 
         let line_no_richtext = RichText::new(line_no).color(Color32::GRAY).monospace();
-        let line_color = match self.line.origin {
-            '+' => Color32::GREEN,
-            '-' => Color32::RED,
-            _ => Color32::WHITE,
-        };
-        let line_richtext = RichText::new(self.line.to_string())
-            .monospace()
-            .color(line_color);
 
-        ui.horizontal(|ui| {
-            ui.label(line_no_richtext);
-            ui.label(line_richtext);
+        ui.label(line_no_richtext)
+    }
+}
+
+struct LineNumbersWidget {
+    longest_line: usize,
+    lines: Vec<Line>,
+    headers: Vec<Header>,
+}
+
+impl LineNumbersWidget {
+    fn new(longest_line: usize, lines: Vec<Line>, headers: Vec<Header>) -> LineNumbersWidget {
+        LineNumbersWidget {
+            longest_line,
+            lines,
+            headers,
+        }
+    }
+}
+
+impl Widget for LineNumbersWidget {
+    fn ui(self, ui: &mut Ui) -> Response {
+        ui.with_layout(Layout::top_down(egui::Align::Min), |ui| {
+            ui.add_space(3.0);
+            for line in &self.lines {
+                for header in &self.headers {
+                    if header.line == line.new_lineno.unwrap_or(0)
+                        && line.origin != '+'
+                        && line.origin != '-'
+                    {
+                        ui.label("");
+                    }
+                }
+                ui.add(LineNumberWidget::new(line.clone(), self.longest_line));
+            }
         })
         .response
     }
 }
 
-struct HeaderWidget {
-    header: Header,
+struct OriginsWidget {
+    lines: Vec<Line>,
+    headers: Vec<Header>,
 }
 
-impl HeaderWidget {
-    fn new(header: Header) -> HeaderWidget {
-        HeaderWidget { header }
+impl OriginsWidget {
+    fn new(lines: Vec<Line>, headers: Vec<Header>) -> OriginsWidget {
+        OriginsWidget { lines, headers }
     }
 }
 
-impl Widget for HeaderWidget {
+impl Widget for OriginsWidget {
     fn ui(self, ui: &mut Ui) -> Response {
-        let green_part = self
-            .header
-            .content
-            .split(' ')
-            .take(4)
-            .collect::<Vec<&str>>()
-            .join(" ");
-        let white_part = self
-            .header
-            .content
-            .split(' ')
-            .skip(4)
-            .collect::<Vec<&str>>()
-            .join(" ");
+        ui.with_layout(Layout::top_down(egui::Align::Min), |ui| {
+            ui.add_space(3.0);
+            for line in &self.lines {
+                for header in &self.headers {
+                    if header.line == line.new_lineno.unwrap_or(0)
+                        && line.origin != '+'
+                        && line.origin != '-'
+                    {
+                        ui.label("");
+                    }
+                }
+                let line_color = match line.origin {
+                    '+' => Color32::GREEN,
+                    '-' => Color32::RED,
+                    _ => Color32::WHITE,
+                };
 
-        let green_label = Label::new(
-            RichText::new(green_part)
-                .color(Color32::from_rgb(7, 138, 171))
-                .monospace(),
-        );
-        let white_label = Label::new(RichText::new(white_part).color(Color32::WHITE).monospace());
+                ui.label(RichText::new(line.origin).color(line_color).monospace());
+            }
+        })
+        .response
+    }
+}
 
-        ui.horizontal(|ui| {
-            ui.add(green_label);
-            ui.add(white_label);
+struct CodeWidget {
+    lines: Vec<Line>,
+    headers: Vec<Header>,
+}
+
+impl CodeWidget {
+    fn new(lines: Vec<Line>, headers: Vec<Header>) -> CodeWidget {
+        CodeWidget { lines, headers }
+    }
+}
+
+impl Widget for CodeWidget {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let mut content = "".to_owned();
+        for line in &self.lines {
+            for header in &self.headers {
+                if header.line == line.new_lineno.unwrap_or(0)
+                    && line.origin != '+'
+                    && line.origin != '-'
+                {
+                    content.push_str(format!("{}\n", header.content).as_str());
+                }
+            }
+            content.push_str(format!("{}\n", line.content.as_str()).as_str());
+        }
+
+        ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
+            ui.add(
+                TextEdit::multiline(&mut content)
+                    .font(TextStyle::Monospace)
+                    .desired_width(f32::INFINITY)
+                    .code_editor()
+                    .text_color(Color32::WHITE)
+                    .lock_focus(true),
+            );
         })
         .response
     }
@@ -129,18 +188,24 @@ impl Widget for DiffAreaWidget {
                 .id_source("diff area")
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
-                    for line in &self.diff.lines {
-                        for header in &self.diff.headers {
-                            if header.line == line.new_lineno.unwrap_or(0)
-                                && line.origin != '+'
-                                && line.origin != '-'
-                            {
-                                ui.add(HeaderWidget::new(header.clone()));
-                            }
-                        }
+                    ui.horizontal(|ui| {
+                        ui.style_mut().spacing.item_spacing.y = 0.;
+                        ui.add(LineNumbersWidget::new(
+                            longest_line,
+                            self.diff.lines.clone(),
+                            self.diff.headers.clone(),
+                        ));
 
-                        ui.add(LineWidget::new(line.clone(), longest_line));
-                    }
+                        ui.add(OriginsWidget::new(
+                            self.diff.lines.clone(),
+                            self.diff.headers.clone(),
+                        ));
+
+                        ui.add(CodeWidget::new(
+                            self.diff.lines.clone(),
+                            self.diff.headers.clone(),
+                        ));
+                    });
                 });
         })
         .response
