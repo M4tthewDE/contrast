@@ -121,21 +121,86 @@ impl CodeWidget {
     }
 }
 
-fn layout_job(text: &str) -> LayoutJob {
-    let mut job = LayoutJob::default();
-    job.wrap.max_width = f32::INFINITY;
+#[derive(Debug)]
+struct LayoutHandler {
+    header_indices: Vec<usize>,
+    insertion_indices: Vec<usize>,
+    deletion_indices: Vec<usize>,
+    neutral_indices: Vec<usize>,
+}
 
-    job.append(
-        text,
-        0.0,
-        TextFormat::simple(FontId::new(12.0, FontFamily::Monospace), Color32::WHITE),
-    );
-    job
+impl LayoutHandler {
+    fn new(
+        header_indices: Vec<usize>,
+        insertion_indices: Vec<usize>,
+        deletion_indices: Vec<usize>,
+        neutral_indices: Vec<usize>,
+    ) -> LayoutHandler {
+        LayoutHandler {
+            header_indices,
+            insertion_indices,
+            deletion_indices,
+            neutral_indices,
+        }
+    }
+
+    fn layout_job(&self, text: &str) -> LayoutJob {
+        let mut job = LayoutJob::default();
+        job.wrap.max_width = f32::INFINITY;
+
+        let header_format = TextFormat::simple(
+            FontId::new(12.0, FontFamily::Monospace),
+            Color32::from_rgb(7, 138, 171),
+        );
+        let insertion_format =
+            TextFormat::simple(FontId::new(12.0, FontFamily::Monospace), Color32::GREEN);
+        let deletion_format =
+            TextFormat::simple(FontId::new(12.0, FontFamily::Monospace), Color32::RED);
+        let neutral_format =
+            TextFormat::simple(FontId::new(12.0, FontFamily::Monospace), Color32::WHITE);
+
+        for (i, line) in text.split('\n').enumerate() {
+            if self.is_header(i) {
+                // TODO: separate green from white part
+                job.append(format!("{line}\n").as_str(), 0.0, header_format.clone());
+            }
+            if self.is_insertion(i) {
+                job.append(format!("{line}\n").as_str(), 0.0, insertion_format.clone());
+            }
+            if self.is_deletion(i) {
+                job.append(format!("{line}\n").as_str(), 0.0, deletion_format.clone());
+            }
+            if self.is_neutral(i) {
+                job.append(format!("{line}\n").as_str(), 0.0, neutral_format.clone());
+            }
+        }
+
+        job
+    }
+
+    fn is_header(&self, i: usize) -> bool {
+        self.header_indices.contains(&i)
+    }
+    fn is_insertion(&self, i: usize) -> bool {
+        self.insertion_indices.contains(&i)
+    }
+    fn is_deletion(&self, i: usize) -> bool {
+        self.deletion_indices.contains(&i)
+    }
+    fn is_neutral(&self, i: usize) -> bool {
+        self.neutral_indices.contains(&i)
+    }
 }
 
 impl Widget for CodeWidget {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut content = "".to_owned();
+        let mut header_indices = Vec::new();
+        let mut insertion_indices = Vec::new();
+        let mut deletion_indices = Vec::new();
+        let mut neutral_indices = Vec::new();
+
+        let mut i = 0;
         for line in &self.lines {
             for header in &self.headers {
                 if header.line == line.new_lineno.unwrap_or(0)
@@ -143,13 +208,30 @@ impl Widget for CodeWidget {
                     && line.origin != '-'
                 {
                     content.push_str(format!("{}\n", header.content).as_str());
+                    header_indices.push(i);
+                    i += 1;
                 }
             }
             content.push_str(format!("{}\n", line.content.as_str()).as_str());
+
+            match line.origin {
+                '+' => insertion_indices.push(i),
+                '-' => deletion_indices.push(i),
+                _ => neutral_indices.push(i),
+            };
+
+            i += 1;
         }
 
+        let layout_handler = LayoutHandler::new(
+            header_indices,
+            insertion_indices,
+            deletion_indices,
+            neutral_indices,
+        );
+
         let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
-            let layout_job: egui::text::LayoutJob = layout_job(string);
+            let layout_job: egui::text::LayoutJob = layout_handler.layout_job(string);
             ui.fonts(|f| f.layout_job(layout_job))
         };
 
