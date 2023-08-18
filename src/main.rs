@@ -1,6 +1,4 @@
 use data::{AppData, ControlData};
-use egui::{Align, Layout};
-use ui::{error_dialog, DiffAreaWidget, FilesAreaWidget, ProjectAreaWidget, SelectionAreaWidget};
 
 use eframe::egui;
 
@@ -27,36 +25,6 @@ struct MyApp {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            if self.control_data.show_err_dialog {
-                error_dialog(ctx, &mut self.control_data)
-            }
-
-            ui.add(SelectionAreaWidget {
-                app_data: &mut self.app_data,
-                control_data: &mut self.control_data,
-            });
-
-            if let Some(app_data) = &self.app_data {
-                ui.add(ProjectAreaWidget::new(app_data.clone()));
-
-                if app_data.diffs.is_empty() {
-                    return;
-                }
-            }
-
-            ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
-                if let Some(app_data) = &mut self.app_data {
-                    ui.add(FilesAreaWidget { app_data });
-                }
-
-                ui.separator();
-                if let Some(app_data) = &self.app_data {
-                    if let Some(diff) = app_data.get_selected_diff() {
-                        ui.add(DiffAreaWidget::new(diff.clone()));
-                    }
-                }
-            });
-        });
+        ui::show(ctx, &mut self.app_data, &mut self.control_data)
     }
 }

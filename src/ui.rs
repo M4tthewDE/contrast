@@ -1,7 +1,7 @@
 use egui::{
     text::LayoutJob,
     util::cache::{ComputerMut, FrameCache},
-    Color32, Context, FontFamily, FontId, Layout, Response, RichText, ScrollArea, TextEdit,
+    Align, Color32, Context, FontFamily, FontId, Layout, Response, RichText, ScrollArea, TextEdit,
     TextFormat, TextStyle, Ui, Widget, Window,
 };
 
@@ -10,6 +10,40 @@ use crate::{
     git::{Diff, Header, Line, Stats},
     AppData, ControlData,
 };
+
+pub fn show(ctx: &Context, app_data: &mut Option<AppData>, control_data: &mut ControlData) {
+    egui::CentralPanel::default().show(ctx, |ui| {
+        if control_data.show_err_dialog {
+            error_dialog(ctx, control_data)
+        }
+
+        ui.add(SelectionAreaWidget {
+            app_data,
+            control_data,
+        });
+
+        if let Some(app_data) = app_data {
+            ui.add(ProjectAreaWidget::new(app_data.clone()));
+
+            if app_data.diffs.is_empty() {
+                return;
+            }
+        }
+
+        ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
+            if let Some(app_data) = app_data {
+                ui.add(FilesAreaWidget { app_data });
+            }
+
+            ui.separator();
+            if let Some(app_data) = &app_data {
+                if let Some(diff) = app_data.get_selected_diff() {
+                    ui.add(DiffAreaWidget::new(diff.clone()));
+                }
+            }
+        });
+    });
+}
 
 pub struct SelectionAreaWidget<'a> {
     pub app_data: &'a mut Option<AppData>,
