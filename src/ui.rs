@@ -161,8 +161,12 @@ impl LayoutHandler {
 
         for (i, line) in text.split('\n').enumerate() {
             if self.is_header(i) {
-                // TODO: separate green from white part
-                job.append(format!("{line}\n").as_str(), 0.0, header_format.clone());
+                let green_part = line.split(' ').take(4).collect::<Vec<&str>>().join(" ");
+                let white_part = line.split(' ').skip(4).collect::<Vec<&str>>().join(" ");
+                job.append(&green_part, 0.0, header_format.clone());
+                job.append(" ", 0.0, neutral_format.clone());
+                job.append(&white_part, 0.0, neutral_format.clone());
+                job.append("\n", 0.0, neutral_format.clone());
             }
             if self.is_insertion(i) {
                 job.append(format!("{line}\n").as_str(), 0.0, insertion_format.clone());
