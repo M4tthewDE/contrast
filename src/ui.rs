@@ -63,7 +63,7 @@ impl Widget for LineNumbersWidget {
                         && line.origin != '+'
                         && line.origin != '-'
                     {
-                        ui.label("");
+                        ui.label(RichText::new(" ").monospace());
                     }
                 }
                 ui.add(LineNumberWidget::new(line.clone(), self.longest_line));
@@ -94,7 +94,7 @@ impl Widget for OriginsWidget {
                         && line.origin != '+'
                         && line.origin != '-'
                     {
-                        ui.label("");
+                        ui.label(RichText::new(' ').monospace());
                     }
                 }
                 let line_color = match line.origin {
