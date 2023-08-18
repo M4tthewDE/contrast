@@ -2,13 +2,71 @@ use egui::{
     text::LayoutJob,
     util::cache::{ComputerMut, FrameCache},
     Color32, Context, FontFamily, FontId, Layout, Response, RichText, ScrollArea, TextEdit,
-    TextFormat, TextStyle, Ui, Widget,
+    TextFormat, TextStyle, Ui, Widget, Window,
 };
 
 use crate::{
     git::{Diff, Header, Line, Stats},
-    AppData,
+    AppData, AppDataCreationError, ControlData,
 };
+
+pub struct SelectionAreaWidget<'a> {
+    pub app_data: &'a mut Option<AppData>,
+    pub control_data: &'a mut ControlData,
+}
+
+impl Widget for SelectionAreaWidget<'_> {
+    fn ui(self, ui: &mut Ui) -> Response {
+        ui.horizontal(|ui| {
+            ui.heading(RichText::new("Diff Viewer").color(Color32::WHITE));
+            ui.separator();
+
+            if ui
+                .button(RichText::new("Open").color(Color32::WHITE))
+                .clicked()
+            {
+                if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                    match AppData::new(path) {
+                        Ok(app_data) => *self.app_data = Some(app_data),
+                        Err(err) => match err {
+                            AppDataCreationError::Parsing => {
+                                self.control_data.error_information = "Parsing failed!".to_string();
+                                self.control_data.show_err_dialog = true;
+                            }
+                        },
+                    }
+                }
+            }
+
+            if ui
+                .button(RichText::new("Refresh").color(Color32::WHITE))
+                .clicked()
+            {
+                if let Some(app_data) = self.app_data {
+                    if app_data.refresh().is_err() {
+                        self.control_data.error_information = "Refresh failed!".to_string();
+                        self.control_data.show_err_dialog = true;
+                    }
+                }
+            }
+        });
+
+        ui.separator()
+    }
+}
+
+pub fn error_dialog(ctx: &egui::Context, control_data: &mut ControlData) {
+    Window::new("Error")
+        .collapsible(false)
+        .resizable(true)
+        .show(ctx, |ui| {
+            ui.label(RichText::new(control_data.error_information.clone()).strong());
+            if ui.button("Close").clicked() {
+                control_data.error_information = "".to_owned();
+                control_data.show_err_dialog = false;
+            }
+        });
+}
 
 pub struct FilesAreaWidget<'a> {
     pub app_data: &'a mut AppData,

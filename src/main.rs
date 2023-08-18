@@ -1,6 +1,6 @@
-use egui::{Align, Color32, Layout, RichText, Ui, Window};
+use egui::{Align, Layout};
 use std::path::PathBuf;
-use ui::{DiffAreaWidget, FilesAreaWidget, ProjectAreaWidget};
+use ui::{error_dialog, DiffAreaWidget, FilesAreaWidget, ProjectAreaWidget, SelectionAreaWidget};
 
 use git::{Diff, DiffParsingError, Stats};
 
@@ -23,6 +23,11 @@ fn main() -> Result<(), eframe::Error> {
 #[derive(Default)]
 struct MyApp {
     app_data: Option<AppData>,
+    control_data: ControlData,
+}
+
+#[derive(Default)]
+pub struct ControlData {
     show_err_dialog: bool,
     error_information: String,
 }
@@ -73,7 +78,14 @@ impl AppData {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.selection_area(ctx, ui);
+            if self.control_data.show_err_dialog {
+                error_dialog(ctx, &mut self.control_data)
+            }
+
+            ui.add(SelectionAreaWidget {
+                app_data: &mut self.app_data,
+                control_data: &mut self.control_data,
+            });
 
             if let Some(app_data) = &self.app_data {
                 ui.add(ProjectAreaWidget::new(app_data.clone()));
@@ -96,66 +108,5 @@ impl eframe::App for MyApp {
                 }
             });
         });
-    }
-}
-
-impl MyApp {
-    fn selection_area(&mut self, ctx: &egui::Context, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            ui.heading(RichText::new("Diff Viewer").color(Color32::WHITE));
-            ui.separator();
-
-            if ui
-                .button(RichText::new("Open").color(Color32::WHITE))
-                .clicked()
-            {
-                if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    match AppData::new(path) {
-                        Ok(app_data) => self.app_data = Some(app_data),
-                        Err(err) => match err {
-                            AppDataCreationError::Parsing => {
-                                self.show_error("Parsing failed!".to_owned())
-                            }
-                        },
-                    }
-                }
-            }
-
-            if self.show_err_dialog {
-                self.error_dialog(ctx);
-            }
-
-            if self.app_data.is_some()
-                && ui
-                    .button(RichText::new("Refresh").color(Color32::WHITE))
-                    .clicked()
-            {
-                if let Some(app_data) = &mut self.app_data {
-                    if app_data.refresh().is_err() {
-                        self.show_error("Refresh failed!".to_owned());
-                    };
-                }
-            }
-        });
-
-        ui.separator();
-    }
-
-    fn show_error(&mut self, information: String) {
-        self.error_information = information;
-        self.show_err_dialog = true;
-    }
-
-    fn error_dialog(&mut self, ctx: &egui::Context) {
-        Window::new("Error")
-            .collapsible(false)
-            .resizable(true)
-            .show(ctx, |ui| {
-                ui.label(RichText::new(self.error_information.clone()).strong());
-                if ui.button("Close").clicked() {
-                    self.error_information = "".to_owned();
-                    self.show_err_dialog = false;
-                }
-            });
     }
 }
