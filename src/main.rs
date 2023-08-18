@@ -1,6 +1,7 @@
 use data::{AppData, ControlData};
 
 use eframe::egui;
+use egui::Context;
 
 mod data;
 mod git;
@@ -24,7 +25,7 @@ struct MyApp {
 }
 
 impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         ui::show(ctx, &mut self.app_data, &mut self.control_data)
     }
 }

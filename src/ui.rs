@@ -90,7 +90,7 @@ impl Widget for SelectionAreaWidget<'_> {
     }
 }
 
-pub fn error_dialog(ctx: &egui::Context, control_data: &mut ControlData) {
+pub fn error_dialog(ctx: &Context, control_data: &mut ControlData) {
     Window::new("Error")
         .collapsible(false)
         .resizable(true)
