@@ -10,6 +10,29 @@ use crate::{
     AppData,
 };
 
+pub struct FilesAreaWidget<'a> {
+    pub app_data: &'a mut AppData,
+}
+
+impl Widget for FilesAreaWidget<'_> {
+    fn ui(self, ui: &mut Ui) -> Response {
+        ui.vertical(|ui| {
+            ScrollArea::vertical()
+                .id_source("file scroll area")
+                .show(ui, |ui| {
+                    for (i, diff) in self.app_data.diffs.iter().enumerate() {
+                        if self.app_data.selected_diff_index == i {
+                            ui.button(diff.file_name()).highlight();
+                        } else if ui.button(diff.file_name()).clicked() {
+                            self.app_data.selected_diff_index = i;
+                        }
+                    }
+                });
+        })
+        .response
+    }
+}
+
 struct LineNumberWidget {
     max_digits: usize,
     line: Line,

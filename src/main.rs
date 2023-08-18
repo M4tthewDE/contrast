@@ -1,6 +1,6 @@
-use egui::{Align, Color32, Layout, RichText, ScrollArea, Ui, Window};
+use egui::{Align, Color32, Layout, RichText, Ui, Window};
 use std::path::PathBuf;
-use ui::{DiffAreaWidget, ProjectAreaWidget};
+use ui::{DiffAreaWidget, FilesAreaWidget, ProjectAreaWidget};
 
 use git::{Diff, DiffParsingError, Stats};
 
@@ -84,7 +84,9 @@ impl eframe::App for MyApp {
             }
 
             ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
-                self.files_area(ui);
+                if let Some(app_data) = &mut self.app_data {
+                    ui.add(FilesAreaWidget { app_data });
+                }
 
                 ui.separator();
                 if let Some(app_data) = &self.app_data {
@@ -137,24 +139,6 @@ impl MyApp {
         });
 
         ui.separator();
-    }
-
-    fn files_area(&mut self, ui: &mut Ui) {
-        ui.vertical(|ui| {
-            if let Some(app_data) = &mut self.app_data {
-                ScrollArea::vertical()
-                    .id_source("file scroll area")
-                    .show(ui, |ui| {
-                        for (i, diff) in app_data.diffs.iter().enumerate() {
-                            if app_data.selected_diff_index == i {
-                                ui.button(diff.file_name()).highlight();
-                            } else if ui.button(diff.file_name()).clicked() {
-                                app_data.selected_diff_index = i;
-                            }
-                        }
-                    });
-            }
-        });
     }
 
     fn show_error(&mut self, information: String) {
