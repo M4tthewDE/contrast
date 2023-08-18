@@ -1,3 +1,5 @@
+use std::sync::mpsc::{self, Receiver, Sender};
+
 use data::{AppData, ControlData};
 
 use eframe::egui;
@@ -15,17 +17,37 @@ fn main() -> Result<(), eframe::Error> {
         ..Default::default()
     };
 
-    eframe::run_native("Contrast", options, Box::new(|_cc| Box::<MyApp>::default()))
+    eframe::run_native("Contrast", options, Box::new(|_cc| Box::new(MyApp::new())))
 }
 
-#[derive(Default)]
 struct MyApp {
     app_data: Option<AppData>,
     control_data: ControlData,
+    sender: Sender<AppData>,
+    receiver: Receiver<AppData>,
+}
+
+impl MyApp {
+    fn new() -> MyApp {
+        let (sender, receiver) = mpsc::channel();
+
+        MyApp {
+            app_data: None,
+            control_data: ControlData::default(),
+            sender,
+            receiver,
+        }
+    }
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        ui::show(ctx, &mut self.app_data, &mut self.control_data)
+        ui::show(
+            ctx,
+            &mut self.app_data,
+            &mut self.control_data,
+            &self.receiver,
+            &self.sender,
+        )
     }
 }

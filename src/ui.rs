@@ -1,3 +1,8 @@
+use std::{
+    sync::mpsc::{Receiver, Sender, TryRecvError},
+    thread,
+};
+
 use egui::{
     text::LayoutJob,
     util::cache::{ComputerMut, FrameCache},
@@ -11,15 +16,33 @@ use crate::{
     AppData, ControlData,
 };
 
-pub fn show(ctx: &Context, app_data: &mut Option<AppData>, control_data: &mut ControlData) {
+pub fn show(
+    ctx: &Context,
+    app_data: &mut Option<AppData>,
+    control_data: &mut ControlData,
+    receiver: &Receiver<AppData>,
+    sender: &Sender<AppData>,
+) {
     egui::CentralPanel::default().show(ctx, |ui| {
         if control_data.show_err_dialog {
             error_dialog(ctx, control_data)
         }
 
+        match receiver.try_recv() {
+            Ok(ad) => *app_data = Some(ad),
+            Err(err) => match err {
+                TryRecvError::Disconnected => {
+                    control_data.error_information = "Thread disconnected!".to_string();
+                    control_data.show_err_dialog = true;
+                }
+                TryRecvError::Empty => (),
+            },
+        }
+
         ui.add(SelectionAreaWidget {
             app_data,
             control_data,
+            sender,
         });
 
         if let Some(app_data) = app_data {
@@ -48,6 +71,7 @@ pub fn show(ctx: &Context, app_data: &mut Option<AppData>, control_data: &mut Co
 pub struct SelectionAreaWidget<'a> {
     pub app_data: &'a mut Option<AppData>,
     pub control_data: &'a mut ControlData,
+    sender: &'a Sender<AppData>,
 }
 
 impl Widget for SelectionAreaWidget<'_> {
@@ -61,8 +85,15 @@ impl Widget for SelectionAreaWidget<'_> {
                 .clicked()
             {
                 if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                    let cloned_path = path.clone();
+                    let sender = self.sender.clone();
+                    thread::spawn(move || match AppData::new(cloned_path) {
+                        Ok(app_data) => sender.send(app_data).unwrap(),
+                        Err(err) => (),
+                    });
+                    /*
                     match AppData::new(path) {
-                        Ok(app_data) => *self.app_data = Some(app_data),
+                        Ok(app_data) => self.sender.send(app_data).unwrap(),
                         Err(err) => match err {
                             AppDataCreationError::Parsing => {
                                 self.control_data.error_information = "Parsing failed!".to_string();
@@ -70,6 +101,7 @@ impl Widget for SelectionAreaWidget<'_> {
                             }
                         },
                     }
+                    */
                 }
             }
 
