@@ -6,8 +6,9 @@ use egui::{
 };
 
 use crate::{
+    data::AppDataCreationError,
     git::{Diff, Header, Line, Stats},
-    AppData, AppDataCreationError, ControlData,
+    AppData, ControlData,
 };
 
 pub struct SelectionAreaWidget<'a> {

@@ -1,11 +1,10 @@
+use data::{AppData, ControlData};
 use egui::{Align, Layout};
-use std::path::PathBuf;
 use ui::{error_dialog, DiffAreaWidget, FilesAreaWidget, ProjectAreaWidget, SelectionAreaWidget};
-
-use git::{Diff, DiffParsingError, Stats};
 
 use eframe::egui;
 
+mod data;
 mod git;
 mod ui;
 
@@ -24,55 +23,6 @@ fn main() -> Result<(), eframe::Error> {
 struct MyApp {
     app_data: Option<AppData>,
     control_data: ControlData,
-}
-
-#[derive(Default)]
-pub struct ControlData {
-    show_err_dialog: bool,
-    error_information: String,
-}
-
-#[derive(Clone)]
-pub struct AppData {
-    project_path: String,
-    diffs: Vec<Diff>,
-    stats: Stats,
-    selected_diff_index: usize,
-}
-
-enum AppDataCreationError {
-    Parsing,
-}
-
-impl AppData {
-    fn new(path: PathBuf) -> Result<AppData, AppDataCreationError> {
-        let project_path = path
-            .to_str()
-            .ok_or(AppDataCreationError::Parsing)?
-            .to_owned();
-        let (diffs, stats) =
-            git::get_diffs(project_path.clone()).map_err(|_| AppDataCreationError::Parsing)?;
-
-        Ok(AppData {
-            project_path,
-            diffs,
-            stats,
-            selected_diff_index: 0,
-        })
-    }
-
-    fn refresh(&mut self) -> Result<(), DiffParsingError> {
-        let (diffs, stats) = git::get_diffs(self.project_path.clone())?;
-        self.diffs = diffs;
-        self.stats = stats;
-        self.selected_diff_index = 0;
-
-        Ok(())
-    }
-
-    fn get_selected_diff(&self) -> Option<&Diff> {
-        self.diffs.get(self.selected_diff_index)
-    }
 }
 
 impl eframe::App for MyApp {
