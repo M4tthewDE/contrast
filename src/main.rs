@@ -1,6 +1,9 @@
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::{
+    sync::mpsc::{self, Receiver, Sender, TryRecvError},
+    thread,
+};
 
-use data::{AppData, ControlData};
+use data::{AppData, ControlData, Message};
 
 use eframe::egui;
 use egui::Context;
@@ -23,8 +26,8 @@ fn main() -> Result<(), eframe::Error> {
 struct MyApp {
     app_data: Option<AppData>,
     control_data: ControlData,
-    sender: Sender<AppData>,
-    receiver: Receiver<AppData>,
+    sender: Sender<Message>,
+    receiver: Receiver<Message>,
 }
 
 impl MyApp {
@@ -42,12 +45,34 @@ impl MyApp {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        ui::show(
-            ctx,
-            &mut self.app_data,
-            &mut self.control_data,
-            &self.receiver,
-            &self.sender,
-        )
+        match self.receiver.try_recv() {
+            Ok(msg) => match msg {
+                Message::LoadDiff(path) => {
+                    let s = self.sender.clone();
+                    thread::spawn(move || match AppData::new(path) {
+                        Ok(app_data) => s.send(Message::UpdateAppData(app_data)),
+                        Err(_) => s.send(Message::ShowError("Error loading diff!".to_string())),
+                    });
+                }
+                Message::UpdateAppData(app_data) => self.app_data = Some(app_data),
+                Message::ShowError(error) => {
+                    self.control_data.error_information = error;
+                    self.control_data.show_err_dialog = true;
+                }
+                Message::CloseError => {
+                    self.control_data.error_information = "".to_string();
+                    self.control_data.show_err_dialog = false;
+                }
+            },
+            Err(err) => match err {
+                TryRecvError::Disconnected => {
+                    self.control_data.error_information = "Thread disconnected!".to_string();
+                    self.control_data.show_err_dialog = true;
+                }
+                TryRecvError::Empty => (),
+            },
+        }
+
+        ui::show(ctx, &self.app_data, &self.control_data, &self.sender)
     }
 }

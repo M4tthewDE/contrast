@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::git::{self, Diff, DiffParsingError, Stats};
+use crate::git::{self, Diff, Stats};
 
 #[derive(Default)]
 pub struct ControlData {
@@ -37,16 +37,14 @@ impl AppData {
         })
     }
 
-    pub fn refresh(&mut self) -> Result<(), DiffParsingError> {
-        let (diffs, stats) = git::get_diffs(self.project_path.clone())?;
-        self.diffs = diffs;
-        self.stats = stats;
-        self.selected_diff_index = 0;
-
-        Ok(())
-    }
-
     pub fn get_selected_diff(&self) -> Option<&Diff> {
         self.diffs.get(self.selected_diff_index)
     }
+}
+
+pub enum Message {
+    LoadDiff(PathBuf),
+    UpdateAppData(AppData),
+    ShowError(String),
+    CloseError,
 }
