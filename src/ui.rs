@@ -3,12 +3,12 @@ use std::{path::PathBuf, sync::mpsc::Sender};
 use egui::{
     text::LayoutJob,
     util::cache::{ComputerMut, FrameCache},
-    Align, Color32, Context, FontFamily, FontId, Layout, Response, RichText, ScrollArea, TextEdit,
-    TextFormat, TextStyle, Ui, Widget, Window,
+    Align, Color32, ComboBox, Context, FontFamily, FontId, Layout, Response, RichText, ScrollArea,
+    TextEdit, TextFormat, TextStyle, Ui, Widget, Window,
 };
 
 use crate::{
-    data::Message,
+    data::{DiffType, Message},
     git::{Diff, Header, Line, Stats},
     AppData, ControlData,
 };
@@ -30,9 +30,15 @@ pub fn show(
             ui.separator();
             ui.add(ProjectAreaWidget::new(app_data.clone()));
 
+            ui.add(DiffTypeSelectionArea {
+                sender,
+                selected_diff_type: &mut control_data.diff_type.clone(),
+            });
             if app_data.diffs.is_empty() {
                 return;
             }
+
+            ui.separator();
 
             ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
                 ui.add(FilesAreaWidget { app_data, sender });
@@ -44,6 +50,48 @@ pub fn show(
             });
         }
     });
+}
+
+pub struct DiffTypeSelectionArea<'a> {
+    sender: &'a Sender<Message>,
+    selected_diff_type: &'a mut DiffType,
+}
+
+impl Widget for DiffTypeSelectionArea<'_> {
+    fn ui(self, ui: &mut Ui) -> Response {
+        ui.horizontal(|ui| {
+            ui.label("Type");
+            ComboBox::from_id_source("Diff Type")
+                .selected_text(self.selected_diff_type.label_text())
+                .show_ui(ui, |ui| {
+                    if ui
+                        .selectable_value(
+                            self.selected_diff_type,
+                            DiffType::Modified,
+                            DiffType::Modified.label_text(),
+                        )
+                        .clicked()
+                    {
+                        self.sender
+                            .send(Message::ChangeDiffType(DiffType::Modified))
+                            .expect("Channel closed unexpectedly!");
+                    };
+                    if ui
+                        .selectable_value(
+                            self.selected_diff_type,
+                            DiffType::Staged,
+                            DiffType::Staged.label_text(),
+                        )
+                        .clicked()
+                    {
+                        self.sender
+                            .send(Message::ChangeDiffType(DiffType::Staged))
+                            .expect("Channel closed unexpectedly!");
+                    };
+                });
+        })
+        .response
+    }
 }
 
 pub struct SelectionAreaWidget<'a> {
