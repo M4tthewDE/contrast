@@ -21,7 +21,7 @@ pub enum AppDataCreationError {
 }
 
 impl AppData {
-    pub fn new(path: PathBuf) -> Result<AppData, AppDataCreationError> {
+    pub fn from_pathbuf(path: PathBuf) -> Result<AppData, AppDataCreationError> {
         let project_path = path
             .to_str()
             .ok_or(AppDataCreationError::Parsing)?

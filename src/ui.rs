@@ -234,13 +234,12 @@ impl Widget for OriginsWidget {
 }
 
 struct CodeWidget {
-    lines: Vec<Line>,
-    headers: Vec<Header>,
+    diff: Diff,
 }
 
 impl CodeWidget {
-    fn new(lines: Vec<Line>, headers: Vec<Header>) -> CodeWidget {
-        CodeWidget { lines, headers }
+    fn new(diff: Diff) -> CodeWidget {
+        CodeWidget { diff }
     }
 }
 
@@ -339,50 +338,21 @@ impl LayoutHandler {
 
 impl Widget for CodeWidget {
     fn ui(self, ui: &mut Ui) -> Response {
-        let mut content = "".to_owned();
-        let mut header_indices = Vec::new();
-        let mut insertion_indices = Vec::new();
-        let mut deletion_indices = Vec::new();
-        let mut neutral_indices = Vec::new();
-
-        let mut i = 0;
-        for line in &self.lines {
-            for header in &self.headers {
-                if header.line == line.new_lineno.unwrap_or(0)
-                    && line.origin != '+'
-                    && line.origin != '-'
-                {
-                    content.push_str(format!("{}\n", header.content).as_str());
-                    header_indices.push(i);
-                    i += 1;
-                }
-            }
-            content.push_str(format!("{}\n", line.content.as_str()).as_str());
-
-            match line.origin {
-                '+' => insertion_indices.push(i),
-                '-' => deletion_indices.push(i),
-                _ => neutral_indices.push(i),
-            };
-
-            i += 1;
-        }
-
         let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
             let layout_job: egui::text::LayoutJob = highlight(
                 ui.ctx(),
                 string,
-                &header_indices,
-                &insertion_indices,
-                &deletion_indices,
-                &neutral_indices,
+                &self.diff.header_indices,
+                &self.diff.insertion_indices,
+                &self.diff.deletion_indices,
+                &self.diff.neutral_indices,
             );
             ui.fonts(|f| f.layout_job(layout_job))
         };
 
         ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
             ui.add(
-                TextEdit::multiline(&mut content)
+                TextEdit::multiline(&mut self.diff.content.clone())
                     .font(TextStyle::Monospace)
                     .desired_width(f32::INFINITY)
                     .frame(false)
@@ -450,10 +420,7 @@ impl Widget for DiffAreaWidget {
                             self.diff.headers.clone(),
                         ));
 
-                        ui.add(CodeWidget::new(
-                            self.diff.lines.clone(),
-                            self.diff.headers.clone(),
-                        ));
+                        ui.add(CodeWidget::new(self.diff.clone()));
                     });
                 });
         })

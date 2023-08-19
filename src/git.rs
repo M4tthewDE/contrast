@@ -8,15 +8,54 @@ pub struct Diff {
     new_file: PathBuf,
     pub headers: Vec<Header>,
     pub lines: Vec<Line>,
+    pub content: String,
+    pub header_indices: Vec<usize>,
+    pub insertion_indices: Vec<usize>,
+    pub deletion_indices: Vec<usize>,
+    pub neutral_indices: Vec<usize>,
 }
 
 impl Diff {
     fn new(old_file: PathBuf, new_file: PathBuf, headers: Vec<Header>, lines: Vec<Line>) -> Diff {
+        let mut content = "".to_owned();
+        let mut header_indices = Vec::new();
+        let mut insertion_indices = Vec::new();
+        let mut deletion_indices = Vec::new();
+        let mut neutral_indices = Vec::new();
+
+        let mut i = 0;
+        for line in &lines {
+            for header in &headers {
+                if header.line == line.new_lineno.unwrap_or(0)
+                    && line.origin != '+'
+                    && line.origin != '-'
+                {
+                    content.push_str(format!("{}\n", header.content).as_str());
+                    header_indices.push(i);
+                    i += 1;
+                }
+            }
+            content.push_str(format!("{}\n", line.content.as_str()).as_str());
+
+            match line.origin {
+                '+' => insertion_indices.push(i),
+                '-' => deletion_indices.push(i),
+                _ => neutral_indices.push(i),
+            };
+
+            i += 1;
+        }
+
         Diff {
             old_file,
             new_file,
             headers,
             lines,
+            content,
+            header_indices,
+            insertion_indices,
+            deletion_indices,
+            neutral_indices,
         }
     }
 

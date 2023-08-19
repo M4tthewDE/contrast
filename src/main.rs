@@ -49,7 +49,7 @@ impl eframe::App for MyApp {
             Ok(msg) => match msg {
                 Message::LoadDiff(path) => {
                     let s = self.sender.clone();
-                    thread::spawn(move || match AppData::new(path) {
+                    thread::spawn(move || match AppData::from_pathbuf(path) {
                         Ok(app_data) => s.send(Message::UpdateAppData(app_data)),
                         Err(_) => s.send(Message::ShowError("Error loading diff!".to_string())),
                     });
