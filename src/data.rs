@@ -6,6 +6,7 @@ use crate::git::{self, Diff, Stats};
 pub struct ControlData {
     pub show_err_dialog: bool,
     pub error_information: String,
+    pub diff_type: DiffType,
 }
 
 #[derive(Clone)]
@@ -14,6 +15,22 @@ pub struct AppData {
     pub diffs: Vec<Diff>,
     pub stats: Stats,
     pub selected_diff_index: usize,
+}
+
+#[derive(PartialEq, Clone, Default)]
+pub enum DiffType {
+    #[default]
+    Modified,
+    Staged,
+}
+
+impl DiffType {
+    pub fn label_text(&self) -> String {
+        match self {
+            DiffType::Modified => "Modified".to_string(),
+            DiffType::Staged => "Staged".to_string(),
+        }
+    }
 }
 
 pub enum AppDataCreationError {
@@ -46,5 +63,6 @@ pub enum Message {
     LoadDiff(PathBuf),
     UpdateAppData(AppData),
     ShowError(String),
+    ChangeDiffType(DiffType),
     CloseError,
 }
