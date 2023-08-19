@@ -180,8 +180,13 @@ pub struct DiffParsingError;
 
 pub fn get_staged_diffs(path: String) -> Result<(Vec<Diff>, Stats), DiffParsingError> {
     let repo = Repository::open(path).map_err(|_| DiffParsingError)?;
+    let head = repo
+        .head()
+        .map_err(|_| DiffParsingError)?
+        .peel_to_tree()
+        .map_err(|_| DiffParsingError)?;
     let diffs = repo
-        .diff_tree_to_index(None, None, None)
+        .diff_tree_to_index(Some(&head), None, None)
         .map_err(|_| DiffParsingError)?;
 
     parse_diffs(diffs)
