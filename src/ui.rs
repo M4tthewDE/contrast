@@ -27,6 +27,7 @@ pub fn show(
         ui.add(SelectionAreaWidget { app_data, sender });
 
         if let Some(app_data) = app_data {
+            ui.separator();
             ui.add(ProjectAreaWidget::new(app_data.clone()));
 
             if app_data.diffs.is_empty() {
@@ -37,10 +38,8 @@ pub fn show(
         ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
             if let Some(app_data) = app_data {
                 ui.add(FilesAreaWidget { app_data, sender });
-            }
+                ui.separator();
 
-            ui.separator();
-            if let Some(app_data) = &app_data {
                 if let Some(diff) = app_data.get_selected_diff() {
                     ui.add(DiffAreaWidget::new(diff.clone()));
                 }
@@ -83,9 +82,8 @@ impl Widget for SelectionAreaWidget<'_> {
                         .expect("Channel closed unexpectedly!");
                 }
             }
-        });
-
-        ui.separator()
+        })
+        .response
     }
 }
 
