@@ -56,6 +56,7 @@ impl eframe::App for MyApp {
                 }
                 Message::UpdateAppData(app_data) => self.app_data = Some(app_data),
                 Message::ChangeDiffType(diff_type) => self.control_data.diff_type = diff_type,
+                Message::ChangeSelectedDiffIndex(i) => self.control_data.selected_diff_index = i,
                 Message::ShowError(error) => {
                     self.control_data.error_information = error;
                     self.control_data.show_err_dialog = true;

@@ -8,7 +8,7 @@ use egui::{
 };
 
 use crate::{
-    data::{DiffType, Message},
+    data::{DiffData, DiffType, Message},
     git::{Diff, Header, Line, Stats},
     AppData, ControlData,
 };
@@ -27,24 +27,39 @@ pub fn show(
         ui.add(SelectionAreaWidget { app_data, sender });
 
         if let Some(app_data) = app_data {
+            let diff_data = match control_data.diff_type {
+                DiffType::Modified => &app_data.modified_diff_data,
+                DiffType::Staged => &app_data.staged_diff_data,
+            };
+
             ui.separator();
-            ui.add(ProjectAreaWidget::new(app_data.clone()));
+            ui.add(ProjectAreaWidget::new(
+                app_data.project_path.clone(),
+                diff_data.stats.clone(),
+            ));
 
             ui.add(DiffTypeSelectionArea {
                 sender,
                 selected_diff_type: &mut control_data.diff_type.clone(),
             });
-            if app_data.diffs.is_empty() {
+
+            if app_data.modified_diff_data.diffs.is_empty()
+                && app_data.staged_diff_data.diffs.is_empty()
+            {
                 return;
             }
 
             ui.separator();
 
             ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
-                ui.add(FilesAreaWidget { app_data, sender });
+                ui.add(FilesAreaWidget {
+                    diff_data,
+                    selected_diff_index: control_data.selected_diff_index,
+                    sender,
+                });
                 ui.separator();
 
-                if let Some(diff) = app_data.get_selected_diff() {
+                if let Some(diff) = diff_data.diffs.get(control_data.selected_diff_index) {
                     ui.add(DiffAreaWidget::new(diff.clone()));
                 }
             });
@@ -148,7 +163,8 @@ pub fn error_dialog(ctx: &Context, control_data: &ControlData, sender: &Sender<M
 }
 
 pub struct FilesAreaWidget<'a> {
-    app_data: &'a AppData,
+    diff_data: &'a DiffData,
+    selected_diff_index: usize,
     sender: &'a Sender<Message>,
 }
 
@@ -158,14 +174,12 @@ impl Widget for FilesAreaWidget<'_> {
             ScrollArea::vertical()
                 .id_source("file scroll area")
                 .show(ui, |ui| {
-                    for (i, diff) in self.app_data.diffs.iter().enumerate() {
-                        if self.app_data.selected_diff_index == i {
+                    for (i, diff) in self.diff_data.diffs.iter().enumerate() {
+                        if self.selected_diff_index == i {
                             ui.button(diff.file_name()).highlight();
                         } else if ui.button(diff.file_name()).clicked() {
-                            let mut app_data = self.app_data.clone();
-                            app_data.selected_diff_index = i;
                             self.sender
-                                .send(Message::UpdateAppData(app_data))
+                                .send(Message::ChangeSelectedDiffIndex(i))
                                 .expect("Channel closed unexpectedly!");
                         }
                     }
@@ -411,19 +425,20 @@ impl Widget for CodeWidget {
 }
 
 pub struct ProjectAreaWidget {
-    app_data: AppData,
+    path: String,
+    stats: Stats,
 }
 
 impl ProjectAreaWidget {
-    pub fn new(app_data: AppData) -> ProjectAreaWidget {
-        ProjectAreaWidget { app_data }
+    pub fn new(path: String, stats: Stats) -> ProjectAreaWidget {
+        ProjectAreaWidget { path, stats }
     }
 }
 
 impl Widget for ProjectAreaWidget {
     fn ui(self, ui: &mut Ui) -> Response {
-        ui.heading(RichText::new(self.app_data.project_path.clone()).color(Color32::WHITE));
-        ui.add(StatsWidget::new(self.app_data.stats));
+        ui.heading(RichText::new(self.path.clone()).color(Color32::WHITE));
+        ui.add(StatsWidget::new(self.stats));
         ui.separator()
     }
 }

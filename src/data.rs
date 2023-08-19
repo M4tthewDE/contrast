@@ -7,14 +7,19 @@ pub struct ControlData {
     pub show_err_dialog: bool,
     pub error_information: String,
     pub diff_type: DiffType,
+    pub selected_diff_index: usize,
 }
 
 #[derive(Clone)]
 pub struct AppData {
     pub project_path: String,
+    pub modified_diff_data: DiffData,
+    pub staged_diff_data: DiffData,
+}
+#[derive(Clone)]
+pub struct DiffData {
     pub diffs: Vec<Diff>,
     pub stats: Stats,
-    pub selected_diff_index: usize,
 }
 
 #[derive(PartialEq, Clone, Default)]
@@ -43,19 +48,26 @@ impl AppData {
             .to_str()
             .ok_or(AppDataCreationError::Parsing)?
             .to_owned();
-        let (diffs, stats) =
+        let (modified_diffs, modified_stats) =
             git::get_diffs(project_path.clone()).map_err(|_| AppDataCreationError::Parsing)?;
+        let (staged_diffs, staged_stats) = git::get_staged_diffs(project_path.clone())
+            .map_err(|_| AppDataCreationError::Parsing)?;
+
+        let modified_diff_data = DiffData {
+            diffs: modified_diffs,
+            stats: modified_stats,
+        };
+
+        let staged_diff_data = DiffData {
+            diffs: staged_diffs,
+            stats: staged_stats,
+        };
 
         Ok(AppData {
             project_path,
-            diffs,
-            stats,
-            selected_diff_index: 0,
+            modified_diff_data,
+            staged_diff_data,
         })
-    }
-
-    pub fn get_selected_diff(&self) -> Option<&Diff> {
-        self.diffs.get(self.selected_diff_index)
     }
 }
 
@@ -64,5 +76,6 @@ pub enum Message {
     UpdateAppData(AppData),
     ShowError(String),
     ChangeDiffType(DiffType),
+    ChangeSelectedDiffIndex(usize),
     CloseError,
 }
