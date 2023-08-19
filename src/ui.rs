@@ -33,18 +33,16 @@ pub fn show(
             if app_data.diffs.is_empty() {
                 return;
             }
-        }
 
-        ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
-            if let Some(app_data) = app_data {
+            ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
                 ui.add(FilesAreaWidget { app_data, sender });
                 ui.separator();
 
                 if let Some(diff) = app_data.get_selected_diff() {
                     ui.add(DiffAreaWidget::new(diff.clone()));
                 }
-            }
-        });
+            });
+        }
     });
 }
 
