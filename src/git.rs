@@ -178,12 +178,25 @@ impl Stats {
 #[derive(Debug)]
 pub struct DiffParsingError;
 
+pub fn get_staged_diffs(path: String) -> Result<(Vec<Diff>, Stats), DiffParsingError> {
+    let repo = Repository::open(path).map_err(|_| DiffParsingError)?;
+    let diffs = repo
+        .diff_tree_to_index(None, None, None)
+        .map_err(|_| DiffParsingError)?;
+
+    parse_diffs(diffs)
+}
+
 pub fn get_diffs(path: String) -> Result<(Vec<Diff>, Stats), DiffParsingError> {
     let repo = Repository::open(path).map_err(|_| DiffParsingError)?;
     let diffs = repo
         .diff_index_to_workdir(None, None)
         .map_err(|_| DiffParsingError)?;
 
+    parse_diffs(diffs)
+}
+
+fn parse_diffs(diffs: git2::Diff) -> Result<(Vec<Diff>, Stats), DiffParsingError> {
     let line_groups = Rc::new(RefCell::new(Vec::new()));
     diffs
         .foreach(
