@@ -43,9 +43,7 @@ pub fn show(
                 selected_diff_type: &mut control_data.diff_type.clone(),
             });
 
-            if app_data.modified_diff_data.diffs.is_empty()
-                && app_data.staged_diff_data.diffs.is_empty()
-            {
+            if diff_data.diffs.is_empty() {
                 return;
             }
 
