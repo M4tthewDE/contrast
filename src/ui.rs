@@ -24,11 +24,7 @@ pub fn show(
             error_dialog(ctx, control_data, sender);
         }
 
-        ui.add(SelectionAreaWidget {
-            app_data,
-            control_data,
-            sender,
-        });
+        ui.add(SelectionAreaWidget { app_data, sender });
 
         if let Some(app_data) = app_data {
             ui.add(ProjectAreaWidget::new(app_data.clone()));
@@ -54,8 +50,7 @@ pub fn show(
 }
 
 pub struct SelectionAreaWidget<'a> {
-    pub app_data: &'a Option<AppData>,
-    pub control_data: &'a ControlData,
+    app_data: &'a Option<AppData>,
     sender: &'a Sender<Message>,
 }
 
@@ -109,7 +104,7 @@ pub fn error_dialog(ctx: &Context, control_data: &ControlData, sender: &Sender<M
 }
 
 pub struct FilesAreaWidget<'a> {
-    pub app_data: &'a AppData,
+    app_data: &'a AppData,
     sender: &'a Sender<Message>,
 }
 
