@@ -1,7 +1,4 @@
-use std::{
-    sync::mpsc::{Receiver, Sender, TryRecvError},
-    thread,
-};
+use std::{path::PathBuf, sync::mpsc::Sender};
 
 use egui::{
     text::LayoutJob,
@@ -11,32 +8,20 @@ use egui::{
 };
 
 use crate::{
-    data::AppDataCreationError,
+    data::Message,
     git::{Diff, Header, Line, Stats},
     AppData, ControlData,
 };
 
 pub fn show(
     ctx: &Context,
-    app_data: &mut Option<AppData>,
-    control_data: &mut ControlData,
-    receiver: &Receiver<AppData>,
-    sender: &Sender<AppData>,
+    app_data: &Option<AppData>,
+    control_data: &ControlData,
+    sender: &Sender<Message>,
 ) {
     egui::CentralPanel::default().show(ctx, |ui| {
         if control_data.show_err_dialog {
-            error_dialog(ctx, control_data)
-        }
-
-        match receiver.try_recv() {
-            Ok(ad) => *app_data = Some(ad),
-            Err(err) => match err {
-                TryRecvError::Disconnected => {
-                    control_data.error_information = "Thread disconnected!".to_string();
-                    control_data.show_err_dialog = true;
-                }
-                TryRecvError::Empty => (),
-            },
+            error_dialog(ctx, control_data, sender);
         }
 
         ui.add(SelectionAreaWidget {
@@ -55,7 +40,7 @@ pub fn show(
 
         ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
             if let Some(app_data) = app_data {
-                ui.add(FilesAreaWidget { app_data });
+                ui.add(FilesAreaWidget { app_data, sender });
             }
 
             ui.separator();
@@ -69,9 +54,9 @@ pub fn show(
 }
 
 pub struct SelectionAreaWidget<'a> {
-    pub app_data: &'a mut Option<AppData>,
-    pub control_data: &'a mut ControlData,
-    sender: &'a Sender<AppData>,
+    pub app_data: &'a Option<AppData>,
+    pub control_data: &'a ControlData,
+    sender: &'a Sender<Message>,
 }
 
 impl Widget for SelectionAreaWidget<'_> {
@@ -85,23 +70,9 @@ impl Widget for SelectionAreaWidget<'_> {
                 .clicked()
             {
                 if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    let cloned_path = path.clone();
-                    let sender = self.sender.clone();
-                    thread::spawn(move || match AppData::new(cloned_path) {
-                        Ok(app_data) => sender.send(app_data).unwrap(),
-                        Err(err) => (),
-                    });
-                    /*
-                    match AppData::new(path) {
-                        Ok(app_data) => self.sender.send(app_data).unwrap(),
-                        Err(err) => match err {
-                            AppDataCreationError::Parsing => {
-                                self.control_data.error_information = "Parsing failed!".to_string();
-                                self.control_data.show_err_dialog = true;
-                            }
-                        },
-                    }
-                    */
+                    self.sender
+                        .send(Message::LoadDiff(path))
+                        .expect("Channel closed unexpectedly!");
                 }
             }
 
@@ -110,10 +81,11 @@ impl Widget for SelectionAreaWidget<'_> {
                 .clicked()
             {
                 if let Some(app_data) = self.app_data {
-                    if app_data.refresh().is_err() {
-                        self.control_data.error_information = "Refresh failed!".to_string();
-                        self.control_data.show_err_dialog = true;
-                    }
+                    self.sender
+                        .send(Message::LoadDiff(PathBuf::from(
+                            app_data.project_path.clone(),
+                        )))
+                        .expect("Channel closed unexpectedly!");
                 }
             }
         });
@@ -122,21 +94,23 @@ impl Widget for SelectionAreaWidget<'_> {
     }
 }
 
-pub fn error_dialog(ctx: &Context, control_data: &mut ControlData) {
+pub fn error_dialog(ctx: &Context, control_data: &ControlData, sender: &Sender<Message>) {
     Window::new("Error")
         .collapsible(false)
         .resizable(true)
         .show(ctx, |ui| {
             ui.label(RichText::new(control_data.error_information.clone()).strong());
             if ui.button("Close").clicked() {
-                control_data.error_information = "".to_owned();
-                control_data.show_err_dialog = false;
+                sender
+                    .send(Message::CloseError)
+                    .expect("Channel closed unexpectedly!");
             }
         });
 }
 
 pub struct FilesAreaWidget<'a> {
-    pub app_data: &'a mut AppData,
+    pub app_data: &'a AppData,
+    sender: &'a Sender<Message>,
 }
 
 impl Widget for FilesAreaWidget<'_> {
@@ -149,7 +123,11 @@ impl Widget for FilesAreaWidget<'_> {
                         if self.app_data.selected_diff_index == i {
                             ui.button(diff.file_name()).highlight();
                         } else if ui.button(diff.file_name()).clicked() {
-                            self.app_data.selected_diff_index = i;
+                            let mut app_data = self.app_data.clone();
+                            app_data.selected_diff_index = i;
+                            self.sender
+                                .send(Message::UpdateAppData(app_data))
+                                .expect("Channel closed unexpectedly!");
                         }
                     }
                 });
