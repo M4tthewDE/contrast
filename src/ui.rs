@@ -220,7 +220,6 @@ impl Widget for LineNumbersWidget {
     fn ui(self, ui: &mut Ui) -> Response {
         puffin::profile_function!("LineNumbersWidget");
 
-        // TODO: move this outside of ui and into git.rs
         let mut content = "".to_owned();
 
         let Range { start, end } = self.range;
@@ -278,7 +277,6 @@ impl Widget for OriginsWidget {
         let Range { start, end } = self.range;
         let end = std::cmp::min(end, self.lines.len());
 
-        // TODO: move this outside of ui and into git.rs
         let mut content = "".to_owned();
         for line in &self.lines[start..end] {
             for header in &self.headers {
@@ -511,7 +509,6 @@ impl Widget for DiffAreaWidget {
         }
 
         let longest_line = self.diff.get_longest_line();
-
         let total_rows = self.diff.lines.len() + self.diff.headers.len();
 
         ui.vertical(|ui| {
