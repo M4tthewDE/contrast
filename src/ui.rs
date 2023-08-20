@@ -408,7 +408,7 @@ impl Widget for CodeWidget {
 
         ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
             ui.add(
-                TextEdit::multiline(&mut self.diff.content.clone())
+                TextEdit::multiline(&mut self.diff.content.clone().as_str())
                     .font(TextStyle::Monospace)
                     .desired_width(f32::INFINITY)
                     .frame(false)
