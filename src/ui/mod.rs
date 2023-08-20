@@ -3,17 +3,18 @@ use std::{env, ops::Range, path::PathBuf, sync::mpsc::Sender};
 use egui::{
     text::LayoutJob,
     util::cache::{ComputerMut, FrameCache},
-    Align, Color32, ComboBox, Context, FontFamily, FontId, Layout, Response, RichText, ScrollArea,
-    TextEdit, TextFormat, Ui, Widget, Window,
+    Align, Color32, Context, FontFamily, FontId, Layout, Response, RichText, ScrollArea, TextEdit,
+    TextFormat, Ui, Widget, Window,
 };
 
 use crate::{
     data::{DiffData, DiffType, Message},
     git::{Diff, Header, Line},
-    ui::{origins::OriginsWidget, stats::StatsWidget},
+    ui::{diff_type::DiffTypeSelection, origins::OriginsWidget, stats::StatsWidget},
     AppData, ControlData,
 };
 
+mod diff_type;
 mod origins;
 mod stats;
 
@@ -45,10 +46,10 @@ pub fn show(
             ui.heading(RichText::new(app_data.project_path.clone()).color(Color32::WHITE));
             ui.separator();
 
-            ui.add(DiffTypeSelectionArea {
-                sender,
-                selected_diff_type: &mut control_data.diff_type.clone(),
-            });
+            ui.add(DiffTypeSelection::new(
+                sender.clone(),
+                &mut control_data.diff_type.clone(),
+            ));
 
             ui.add(StatsWidget::new(diff_data.stats.clone()));
 
@@ -72,49 +73,6 @@ pub fn show(
             });
         }
     });
-}
-
-pub struct DiffTypeSelectionArea<'a> {
-    sender: &'a Sender<Message>,
-    selected_diff_type: &'a mut DiffType,
-}
-
-impl Widget for DiffTypeSelectionArea<'_> {
-    fn ui(self, ui: &mut Ui) -> Response {
-        puffin::profile_function!("DiffTypeSelectionArea");
-        ui.horizontal(|ui| {
-            ui.label("Type");
-            ComboBox::from_id_source("Diff Type")
-                .selected_text(self.selected_diff_type.label_text())
-                .show_ui(ui, |ui| {
-                    if ui
-                        .selectable_value(
-                            self.selected_diff_type,
-                            DiffType::Modified,
-                            DiffType::Modified.label_text(),
-                        )
-                        .clicked()
-                    {
-                        self.sender
-                            .send(Message::ChangeDiffType(DiffType::Modified))
-                            .expect("Channel closed unexpectedly!");
-                    };
-                    if ui
-                        .selectable_value(
-                            self.selected_diff_type,
-                            DiffType::Staged,
-                            DiffType::Staged.label_text(),
-                        )
-                        .clicked()
-                    {
-                        self.sender
-                            .send(Message::ChangeDiffType(DiffType::Staged))
-                            .expect("Channel closed unexpectedly!");
-                    };
-                });
-        })
-        .response
-    }
 }
 
 pub struct SelectionAreaWidget<'a> {
