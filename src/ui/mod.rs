@@ -1,16 +1,20 @@
 use std::{env, path::PathBuf, sync::mpsc::Sender};
 
-use egui::{Align, Color32, Context, Layout, Response, RichText, ScrollArea, Ui, Widget, Window};
+use egui::{Align, Color32, Context, Layout, Response, RichText, Ui, Widget, Window};
 
 use crate::{
-    data::{DiffData, DiffType, Message},
-    ui::{diff_area::DiffAreaWidget, diff_type::DiffTypeSelection, stats::StatsWidget},
+    data::{DiffType, Message},
+    ui::{
+        diff_area::DiffAreaWidget, diff_type::DiffTypeSelection, files_area::FilesAreaWidget,
+        stats::StatsWidget,
+    },
     AppData, ControlData,
 };
 
 mod code;
 mod diff_area;
 mod diff_type;
+mod files_area;
 mod line_numbers;
 mod origins;
 mod stats;
@@ -58,11 +62,11 @@ pub fn show(
             ui.separator();
 
             ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
-                ui.add(FilesAreaWidget {
-                    diff_data,
-                    selected_diff_index: control_data.selected_diff_index,
-                    sender,
-                });
+                ui.add(FilesAreaWidget::new(
+                    diff_data.clone(),
+                    control_data.selected_diff_index,
+                    sender.clone(),
+                ));
                 ui.separator();
 
                 if let Some(diff) = diff_data.diffs.get(control_data.selected_diff_index) {
@@ -125,32 +129,4 @@ pub fn error_dialog(ctx: &Context, control_data: &ControlData, sender: &Sender<M
                     .expect("Channel closed unexpectedly!");
             }
         });
-}
-
-pub struct FilesAreaWidget<'a> {
-    diff_data: &'a DiffData,
-    selected_diff_index: usize,
-    sender: &'a Sender<Message>,
-}
-
-impl Widget for FilesAreaWidget<'_> {
-    fn ui(self, ui: &mut Ui) -> Response {
-        puffin::profile_function!("FilesAreaWidget");
-        ui.vertical(|ui| {
-            ScrollArea::vertical()
-                .id_source("file scroll area")
-                .show(ui, |ui| {
-                    for (i, diff) in self.diff_data.diffs.iter().enumerate() {
-                        if self.selected_diff_index == i {
-                            ui.button(diff.file_name()).highlight();
-                        } else if ui.button(diff.file_name()).clicked() {
-                            self.sender
-                                .send(Message::ChangeSelectedDiffIndex(i))
-                                .expect("Channel closed unexpectedly!");
-                        }
-                    }
-                });
-        })
-        .response
-    }
 }
