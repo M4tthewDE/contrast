@@ -4,7 +4,7 @@ use egui::{
     text::LayoutJob,
     util::cache::{ComputerMut, FrameCache},
     Align, Color32, ComboBox, Context, FontFamily, FontId, Layout, Response, RichText, ScrollArea,
-    TextEdit, TextFormat, TextStyle, Ui, Widget, Window,
+    TextEdit, TextFormat, Ui, Widget, Window,
 };
 
 use crate::{
@@ -20,9 +20,12 @@ pub fn show(
     sender: &Sender<Message>,
 ) {
     egui::CentralPanel::default().show(ctx, |ui| {
+        puffin::profile_function!();
         if control_data.show_err_dialog {
             error_dialog(ctx, control_data, sender);
         }
+
+        puffin_egui::profiler_window(ctx);
 
         ui.add(SelectionAreaWidget { app_data, sender });
 
@@ -72,6 +75,7 @@ pub struct DiffTypeSelectionArea<'a> {
 
 impl Widget for DiffTypeSelectionArea<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
+        puffin::profile_function!("DiffTypeSelectionArea");
         ui.horizontal(|ui| {
             ui.label("Type");
             ComboBox::from_id_source("Diff Type")
@@ -114,6 +118,7 @@ pub struct SelectionAreaWidget<'a> {
 
 impl Widget for SelectionAreaWidget<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
+        puffin::profile_function!("SelectionAreaWidget");
         ui.horizontal(|ui| {
             ui.heading(RichText::new("Diff Viewer").color(Color32::WHITE));
             ui.separator();
@@ -168,6 +173,7 @@ pub struct FilesAreaWidget<'a> {
 
 impl Widget for FilesAreaWidget<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
+        puffin::profile_function!("FilesAreaWidget");
         ui.vertical(|ui| {
             ScrollArea::vertical()
                 .id_source("file scroll area")
@@ -184,35 +190,6 @@ impl Widget for FilesAreaWidget<'_> {
                 });
         })
         .response
-    }
-}
-
-struct LineNumberWidget {
-    max_digits: usize,
-    line: Line,
-}
-
-impl LineNumberWidget {
-    fn new(line: Line, max_digits: usize) -> LineNumberWidget {
-        LineNumberWidget { line, max_digits }
-    }
-}
-
-impl Widget for LineNumberWidget {
-    fn ui(self, ui: &mut Ui) -> Response {
-        let mut line_no = match self.line.origin {
-            '+' => self.line.new_lineno.unwrap_or(0).to_string(),
-            '-' => self.line.old_lineno.unwrap_or(0).to_string(),
-            _ => self.line.new_lineno.unwrap_or(0).to_string(),
-        };
-
-        while line_no.len() != self.max_digits {
-            line_no = format!(" {}", line_no);
-        }
-
-        let line_no_richtext = RichText::new(line_no).color(Color32::GRAY).monospace();
-
-        ui.label(line_no_richtext)
     }
 }
 
@@ -234,19 +211,35 @@ impl LineNumbersWidget {
 
 impl Widget for LineNumbersWidget {
     fn ui(self, ui: &mut Ui) -> Response {
+        puffin::profile_function!("LineNumbersWidget");
+
+        // TODO: move this outside of ui and into git.rs
+        let mut content = "".to_owned();
+        for line in &self.lines {
+            for header in &self.headers {
+                if header.line == line.new_lineno.unwrap_or(0)
+                    && line.origin != '+'
+                    && line.origin != '-'
+                {
+                    content.push_str(" \n");
+                }
+            }
+            let mut line_no = match line.origin {
+                '+' => line.new_lineno.unwrap_or(0).to_string(),
+                '-' => line.old_lineno.unwrap_or(0).to_string(),
+                _ => line.new_lineno.unwrap_or(0).to_string(),
+            };
+
+            while line_no.len() != self.longest_line {
+                line_no = format!(" {}", line_no);
+            }
+
+            content.push_str(format!("{}\n", line_no).as_str());
+        }
+
         ui.with_layout(Layout::top_down(egui::Align::Min), |ui| {
             ui.add_space(3.0);
-            for line in &self.lines {
-                for header in &self.headers {
-                    if header.line == line.new_lineno.unwrap_or(0)
-                        && line.origin != '+'
-                        && line.origin != '-'
-                    {
-                        ui.label(RichText::new(" ").monospace());
-                    }
-                }
-                ui.add(LineNumberWidget::new(line.clone(), self.longest_line));
-            }
+            ui.label(content);
         })
         .response
     }
@@ -265,27 +258,79 @@ impl OriginsWidget {
 
 impl Widget for OriginsWidget {
     fn ui(self, ui: &mut Ui) -> Response {
-        ui.with_layout(Layout::top_down(egui::Align::Min), |ui| {
-            ui.add_space(3.0);
-            for line in &self.lines {
-                for header in &self.headers {
-                    if header.line == line.new_lineno.unwrap_or(0)
-                        && line.origin != '+'
-                        && line.origin != '-'
-                    {
-                        ui.label(RichText::new(' ').monospace());
-                    }
-                }
-                let line_color = match line.origin {
-                    '+' => Color32::GREEN,
-                    '-' => Color32::RED,
-                    _ => Color32::WHITE,
-                };
+        puffin::profile_function!("OriginsWidget");
 
-                ui.label(RichText::new(line.origin).color(line_color).monospace());
+        // TODO: move this outside of ui and into git.rs
+        let mut content = "".to_owned();
+        for line in &self.lines {
+            for header in &self.headers {
+                if header.line == line.new_lineno.unwrap_or(0)
+                    && line.origin != '+'
+                    && line.origin != '-'
+                {
+                    content.push_str(" \n");
+                }
             }
-        })
-        .response
+
+            content.push_str(format!("{} \n", line.origin).as_str());
+        }
+
+        let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
+            let layout_job: egui::text::LayoutJob = origins_highlight(ui.ctx(), string);
+            ui.fonts(|f| f.layout_job(layout_job))
+        };
+        ui.add(
+            TextEdit::multiline(&mut content)
+                .desired_width(0.0)
+                .frame(false)
+                .interactive(false)
+                .layouter(&mut layouter),
+        )
+    }
+}
+
+type OriginsHighlightCache = FrameCache<LayoutJob, OriginsLayoutHandler>;
+
+fn origins_highlight(ctx: &Context, text: &str) -> LayoutJob {
+    impl ComputerMut<&str, LayoutJob> for OriginsLayoutHandler {
+        fn compute(&mut self, text: &str) -> LayoutJob {
+            puffin::profile_function!();
+            OriginsLayoutHandler::layout_job(text)
+        }
+    }
+
+    ctx.memory_mut(|mem| mem.caches.cache::<OriginsHighlightCache>().get(text))
+}
+#[derive(Debug, Default)]
+struct OriginsLayoutHandler {}
+
+impl OriginsLayoutHandler {
+    fn layout_job(text: &str) -> LayoutJob {
+        puffin::profile_function!();
+
+        let mut job = LayoutJob::default();
+        job.wrap.max_width = f32::INFINITY;
+
+        let insertion_format =
+            TextFormat::simple(FontId::new(12.0, FontFamily::Monospace), Color32::GREEN);
+        let deletion_format =
+            TextFormat::simple(FontId::new(12.0, FontFamily::Monospace), Color32::RED);
+        let neutral_format =
+            TextFormat::simple(FontId::new(12.0, FontFamily::Monospace), Color32::WHITE);
+
+        for line in text.split('\n') {
+            if line.contains('+') {
+                job.append(format!("{line}\n").as_str(), 0.0, insertion_format.clone());
+            }
+            if line.contains('-') {
+                job.append(format!("{line}\n").as_str(), 0.0, deletion_format.clone());
+            }
+            if !line.contains('+') && !line.contains('-') {
+                job.append(format!("{line}\n").as_str(), 0.0, neutral_format.clone());
+            }
+        }
+
+        job
     }
 }
 
@@ -322,6 +367,7 @@ fn highlight(
                 &Vec<usize>,
             ),
         ) -> LayoutJob {
+            puffin::profile_function!();
             LayoutHandler::layout_job(
                 text,
                 header_indices,
@@ -354,6 +400,7 @@ impl LayoutHandler {
         deletion_indices: &[usize],
         neutral_indices: &[usize],
     ) -> LayoutJob {
+        puffin::profile_function!();
         let mut job = LayoutJob::default();
         job.wrap.max_width = f32::INFINITY;
 
@@ -394,6 +441,7 @@ impl LayoutHandler {
 
 impl Widget for CodeWidget {
     fn ui(self, ui: &mut Ui) -> Response {
+        puffin::profile_function!("CodeWidget");
         let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
             let layout_job: egui::text::LayoutJob = highlight(
                 ui.ctx(),
@@ -407,14 +455,12 @@ impl Widget for CodeWidget {
         };
 
         ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
+            puffin::profile_function!("ui.with_layout");
             ui.add(
                 TextEdit::multiline(&mut self.diff.content.clone().as_str())
-                    .font(TextStyle::Monospace)
                     .desired_width(f32::INFINITY)
                     .frame(false)
                     .code_editor()
-                    .text_color(Color32::WHITE)
-                    .lock_focus(true)
                     .layouter(&mut layouter),
             );
         })
@@ -434,6 +480,7 @@ impl DiffAreaWidget {
 
 impl Widget for DiffAreaWidget {
     fn ui(self, ui: &mut Ui) -> Response {
+        puffin::profile_function!("DiffAreaWidget");
         if self.diff.lines.is_empty() {
             return ui.label(RichText::new("No content").color(Color32::GRAY));
         }
@@ -478,6 +525,7 @@ impl StatsWidget {
 
 impl Widget for StatsWidget {
     fn ui(self, ui: &mut Ui) -> Response {
+        puffin::profile_function!("StatsWidget");
         let file_changed_count = self.stats.files_changed;
         let insertion_count = self.stats.insertions;
         let deletion_count = self.stats.deletions;

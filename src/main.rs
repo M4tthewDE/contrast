@@ -13,6 +13,7 @@ mod git;
 mod ui;
 
 fn main() -> Result<(), eframe::Error> {
+    puffin::set_scopes_on(true);
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
     let options = eframe::NativeOptions {
@@ -45,6 +46,9 @@ impl MyApp {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        puffin::profile_function!();
+        puffin::GlobalProfiler::lock().new_frame();
+
         match self.receiver.try_recv() {
             Ok(msg) => match msg {
                 Message::LoadDiff(path) => {

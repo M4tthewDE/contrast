@@ -16,5 +16,7 @@ eframe = "0.22.0"
 egui = "0.22.0"
 env_logger = "0.10.0"
 git2 = "0.17.2"
+puffin = "0.16.0"
+puffin_egui = "0.22.0"
 rfd = "0.11.4"
 
