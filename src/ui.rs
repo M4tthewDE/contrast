@@ -33,15 +33,15 @@ pub fn show(
             };
 
             ui.separator();
-            ui.add(ProjectAreaWidget::new(
-                app_data.project_path.clone(),
-                diff_data.stats.clone(),
-            ));
+            ui.heading(RichText::new(app_data.project_path.clone()).color(Color32::WHITE));
+            ui.separator();
 
             ui.add(DiffTypeSelectionArea {
                 sender,
                 selected_diff_type: &mut control_data.diff_type.clone(),
             });
+
+            ui.add(StatsWidget::new(diff_data.stats.clone()));
 
             if diff_data.diffs.is_empty() {
                 return;
