@@ -18,7 +18,7 @@ fn main() -> Result<(), eframe::Error> {
         puffin::set_scopes_on(true);
     }
 
-    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    env_logger::init();
 
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(320.0, 240.0)),
@@ -46,13 +46,8 @@ impl MyApp {
             receiver,
         }
     }
-}
 
-impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        puffin::profile_function!();
-        puffin::GlobalProfiler::lock().new_frame();
-
+    fn handle_messages(&mut self) {
         match self.receiver.try_recv() {
             Ok(msg) => match msg {
                 Message::LoadDiff(path) => {
@@ -82,6 +77,15 @@ impl eframe::App for MyApp {
                 TryRecvError::Empty => (),
             },
         }
+    }
+}
+
+impl eframe::App for MyApp {
+    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        puffin::profile_function!();
+        puffin::GlobalProfiler::lock().new_frame();
+
+        self.handle_messages();
 
         ui::show(ctx, &self.app_data, &self.control_data, &self.sender)
     }
