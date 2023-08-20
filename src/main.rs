@@ -1,4 +1,5 @@
 use std::{
+    env,
     sync::mpsc::{self, Receiver, Sender, TryRecvError},
     thread,
 };
@@ -13,7 +14,10 @@ mod git;
 mod ui;
 
 fn main() -> Result<(), eframe::Error> {
-    puffin::set_scopes_on(true);
+    if env::var("PROFILING").is_ok() {
+        puffin::set_scopes_on(true);
+    }
+
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
     let options = eframe::NativeOptions {

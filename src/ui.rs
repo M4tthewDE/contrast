@@ -1,4 +1,4 @@
-use std::{ops::Range, path::PathBuf, sync::mpsc::Sender};
+use std::{env, ops::Range, path::PathBuf, sync::mpsc::Sender};
 
 use egui::{
     text::LayoutJob,
@@ -25,7 +25,9 @@ pub fn show(
             error_dialog(ctx, control_data, sender);
         }
 
-        puffin_egui::profiler_window(ctx);
+        if env::var("PROFILING").is_ok() {
+            puffin_egui::profiler_window(ctx);
+        }
 
         ui.add(SelectionAreaWidget { app_data, sender });
 
