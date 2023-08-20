@@ -247,10 +247,9 @@ impl Widget for LineNumbersWidget {
 
             content.push_str(format!("{}\n", line_no).as_str());
         }
-
-        ui.with_layout(Layout::top_down(egui::Align::Min), |ui| {
+        ui.vertical(|ui| {
             ui.add_space(3.0);
-            ui.label(content);
+            ui.label(RichText::new(content).monospace().color(Color32::GRAY))
         })
         .response
     }
