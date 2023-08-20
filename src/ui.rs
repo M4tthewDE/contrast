@@ -422,25 +422,6 @@ impl Widget for CodeWidget {
     }
 }
 
-pub struct ProjectAreaWidget {
-    path: String,
-    stats: Stats,
-}
-
-impl ProjectAreaWidget {
-    pub fn new(path: String, stats: Stats) -> ProjectAreaWidget {
-        ProjectAreaWidget { path, stats }
-    }
-}
-
-impl Widget for ProjectAreaWidget {
-    fn ui(self, ui: &mut Ui) -> Response {
-        ui.heading(RichText::new(self.path.clone()).color(Color32::WHITE));
-        ui.add(StatsWidget::new(self.stats));
-        ui.separator()
-    }
-}
-
 pub struct DiffAreaWidget {
     diff: Diff,
 }
