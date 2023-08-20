@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::mpsc::Sender};
+use std::{ops::Range, path::PathBuf, sync::mpsc::Sender};
 
 use egui::{
     text::LayoutJob,
@@ -197,14 +197,21 @@ struct LineNumbersWidget {
     longest_line: usize,
     lines: Vec<Line>,
     headers: Vec<Header>,
+    range: Range<usize>,
 }
 
 impl LineNumbersWidget {
-    fn new(longest_line: usize, lines: Vec<Line>, headers: Vec<Header>) -> LineNumbersWidget {
+    fn new(
+        longest_line: usize,
+        lines: Vec<Line>,
+        headers: Vec<Header>,
+        range: Range<usize>,
+    ) -> LineNumbersWidget {
         LineNumbersWidget {
             longest_line,
             lines,
             headers,
+            range,
         }
     }
 }
@@ -215,7 +222,11 @@ impl Widget for LineNumbersWidget {
 
         // TODO: move this outside of ui and into git.rs
         let mut content = "".to_owned();
-        for line in &self.lines {
+
+        let Range { start, end } = self.range;
+        let end = std::cmp::min(end, self.lines.len());
+
+        for line in &self.lines[start..end] {
             for header in &self.headers {
                 if header.line == line.new_lineno.unwrap_or(0)
                     && line.origin != '+'
@@ -248,11 +259,16 @@ impl Widget for LineNumbersWidget {
 struct OriginsWidget {
     lines: Vec<Line>,
     headers: Vec<Header>,
+    range: Range<usize>,
 }
 
 impl OriginsWidget {
-    fn new(lines: Vec<Line>, headers: Vec<Header>) -> OriginsWidget {
-        OriginsWidget { lines, headers }
+    fn new(lines: Vec<Line>, headers: Vec<Header>, range: Range<usize>) -> OriginsWidget {
+        OriginsWidget {
+            lines,
+            headers,
+            range,
+        }
     }
 }
 
@@ -260,9 +276,12 @@ impl Widget for OriginsWidget {
     fn ui(self, ui: &mut Ui) -> Response {
         puffin::profile_function!("OriginsWidget");
 
+        let Range { start, end } = self.range;
+        let end = std::cmp::min(end, self.lines.len());
+
         // TODO: move this outside of ui and into git.rs
         let mut content = "".to_owned();
-        for line in &self.lines {
+        for line in &self.lines[start..end] {
             for header in &self.headers {
                 if header.line == line.new_lineno.unwrap_or(0)
                     && line.origin != '+'
@@ -336,11 +355,12 @@ impl OriginsLayoutHandler {
 
 struct CodeWidget {
     diff: Diff,
+    range: Range<usize>,
 }
 
 impl CodeWidget {
-    fn new(diff: Diff) -> CodeWidget {
-        CodeWidget { diff }
+    fn new(diff: Diff, range: Range<usize>) -> CodeWidget {
+        CodeWidget { diff, range }
     }
 }
 
@@ -454,10 +474,16 @@ impl Widget for CodeWidget {
             ui.fonts(|f| f.layout_job(layout_job))
         };
 
+        let Range { start, end } = self.range;
+        let end = std::cmp::min(end, self.diff.lines.len());
+
+        let test = self.diff.content.lines().collect::<Vec<&str>>();
+        let content = &test[start..end].join("\n");
+
         ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
             puffin::profile_function!("ui.with_layout");
             ui.add(
-                TextEdit::multiline(&mut self.diff.content.clone().as_str())
+                TextEdit::multiline(&mut content.as_str())
                     .desired_width(f32::INFINITY)
                     .frame(false)
                     .code_editor()
@@ -487,25 +513,26 @@ impl Widget for DiffAreaWidget {
 
         let longest_line = self.diff.get_longest_line();
 
+        let total_rows = self.diff.lines.len() + self.diff.headers.len();
+
         ui.vertical(|ui| {
             ScrollArea::both()
                 .id_source("diff area")
                 .auto_shrink([false, false])
-                .show(ui, |ui| {
+                .show_rows(ui, 10.0, total_rows, |ui, row_range| {
                     ui.horizontal(|ui| {
-                        ui.style_mut().spacing.item_spacing.y = 0.;
                         ui.add(LineNumbersWidget::new(
                             longest_line,
                             self.diff.lines.clone(),
                             self.diff.headers.clone(),
+                            row_range.clone(),
                         ));
-
                         ui.add(OriginsWidget::new(
                             self.diff.lines.clone(),
                             self.diff.headers.clone(),
+                            row_range.clone(),
                         ));
-
-                        ui.add(CodeWidget::new(self.diff.clone()));
+                        ui.add(CodeWidget::new(self.diff.clone(), row_range.clone()));
                     });
                 });
         })
