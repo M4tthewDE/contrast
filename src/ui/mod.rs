@@ -49,10 +49,9 @@ pub fn show(
             ui.heading(RichText::new(app_data.project_path.clone()).color(Color32::WHITE));
             ui.separator();
 
-            ui.add(DiffTypeSelection::new(
-                sender.clone(),
-                &mut control_data.diff_type.clone(),
-            ));
+            let mut diff_type_selection =
+                DiffTypeSelection::new(sender.clone(), control_data.diff_type.clone());
+            diff_type_selection.ui(ui);
 
             ui.add(StatsWidget::new(diff_data.stats.clone()));
 
