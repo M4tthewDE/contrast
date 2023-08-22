@@ -4,7 +4,7 @@ use egui::{Align, Color32, Context, Layout, RichText, Window};
 
 use crate::{
     data::{DiffType, Message},
-    ui::{files_area::FilesArea, stats::StatsWidget},
+    ui::files_area::FilesArea,
     AppData, ControlData,
 };
 
@@ -48,7 +48,7 @@ pub fn show(
 
             diff_type::ui(ui, control_data.diff_type.clone(), sender);
 
-            ui.add(StatsWidget::new(diff_data.stats.clone()));
+            stats::ui(ui, &diff_data.stats);
 
             if diff_data.diffs.is_empty() {
                 return;
