@@ -4,7 +4,7 @@ use egui::{Align, Color32, Context, Layout, RichText, Window};
 
 use crate::{
     data::{DiffType, Message},
-    ui::{diff_type::DiffTypeSelection, files_area::FilesArea, stats::StatsWidget},
+    ui::{files_area::FilesArea, stats::StatsWidget},
     AppData, ControlData,
 };
 
@@ -46,9 +46,7 @@ pub fn show(
             ui.heading(RichText::new(app_data.project_path.clone()).color(Color32::WHITE));
             ui.separator();
 
-            let mut diff_type_selection =
-                DiffTypeSelection::new(sender.clone(), control_data.diff_type.clone());
-            diff_type_selection.ui(ui);
+            diff_type::ui(ui, control_data.diff_type.clone(), sender);
 
             ui.add(StatsWidget::new(diff_data.stats.clone()));
 
