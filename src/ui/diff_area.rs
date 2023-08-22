@@ -22,7 +22,6 @@ impl Widget for DiffAreaWidget {
             return ui.label(RichText::new("No content").color(Color32::GRAY));
         }
 
-        let longest_line = self.diff.get_longest_line();
         let total_rows = self.diff.lines.len() + self.diff.headers.len();
 
         ui.vertical(|ui| {
@@ -31,17 +30,8 @@ impl Widget for DiffAreaWidget {
                 .auto_shrink([false, false])
                 .show_rows(ui, 10.0, total_rows, |ui, row_range| {
                     ui.horizontal(|ui| {
-                        ui.add(LineNumbersWidget::new(
-                            longest_line,
-                            self.diff.lines.clone(),
-                            self.diff.headers.clone(),
-                            row_range.clone(),
-                        ));
-                        ui.add(OriginsWidget::new(
-                            self.diff.lines.clone(),
-                            self.diff.headers.clone(),
-                            row_range.clone(),
-                        ));
+                        ui.add(LineNumbersWidget::new(self.diff.clone(), row_range.clone()));
+                        ui.add(OriginsWidget::new(self.diff.clone(), row_range.clone()));
                         ui.add(CodeWidget::new(self.diff.clone(), row_range.clone()));
                     });
                 });
