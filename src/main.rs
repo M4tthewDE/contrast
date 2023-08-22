@@ -43,17 +43,7 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "Contrast",
         options,
-        Box::new(|_cc| {
-            let app = Box::new(MyApp::new());
-
-            if let Some(path) = path {
-                app.sender
-                    .send(Message::LoadDiff(path))
-                    .expect("Channel closed unexpectedly!");
-            }
-
-            return app;
-        }),
+        Box::new(|_cc| Box::new(MyApp::new(path))),
     )
 }
 
@@ -65,15 +55,23 @@ struct MyApp {
 }
 
 impl MyApp {
-    fn new() -> MyApp {
+    fn new(path: Option<PathBuf>) -> MyApp {
         let (sender, receiver) = mpsc::channel();
 
-        MyApp {
+        let app = MyApp {
             app_data: None,
             control_data: ControlData::default(),
             sender,
             receiver,
+        };
+
+        if let Some(path) = path {
+            app.sender
+                .send(Message::LoadDiff(path))
+                .expect("Channel closed unexpectedly!");
         }
+
+        app
     }
 
     fn handle_messages(&mut self) {
