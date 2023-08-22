@@ -7,7 +7,7 @@ use egui::{
 use crate::git::Diff;
 
 pub fn ui(ui: &mut Ui, diff: &Diff, start: usize, end: usize) -> Response {
-    puffin::profile_function!("CodeWidget");
+    puffin::profile_function!("code::ui");
 
     let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
         let layout_job: egui::text::LayoutJob = highlight(
@@ -27,7 +27,6 @@ pub fn ui(ui: &mut Ui, diff: &Diff, start: usize, end: usize) -> Response {
     let content = &lines[start..end].join("\n");
 
     ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
-        puffin::profile_function!("ui.with_layout");
         ui.add(
             TextEdit::multiline(&mut content.as_str())
                 .desired_width(f32::INFINITY)

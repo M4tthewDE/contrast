@@ -5,7 +5,7 @@ use egui::{Color32, RichText, Ui};
 use crate::{data::Message, AppData};
 
 pub fn ui(ui: &mut Ui, app_data: &Option<AppData>, sender: &Sender<Message>) {
-    puffin::profile_function!("SelectionAreaWidget");
+    puffin::profile_function!("selection_area::ui");
     ui.horizontal(|ui| {
         ui.heading(RichText::new("Diff Viewer").color(Color32::WHITE));
         ui.separator();

@@ -7,7 +7,7 @@ use egui::{
 use crate::git::Diff;
 
 pub fn ui(ui: &mut Ui, diff: &Diff, start: usize, end: usize) {
-    puffin::profile_function!("OriginsWidget");
+    puffin::profile_function!("origins::ui");
 
     let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
         let layout_job: egui::text::LayoutJob = origins_highlight(ui.ctx(), string);

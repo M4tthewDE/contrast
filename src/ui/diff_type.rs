@@ -5,7 +5,7 @@ use egui::Ui;
 use crate::data::{DiffType, Message};
 
 pub fn ui(ui: &mut Ui, diff_type: DiffType, sender: &Sender<Message>) {
-    puffin::profile_function!("DiffTypeSelectionArea");
+    puffin::profile_function!("diff_type::ui");
 
     let mut selected_diff_type = diff_type;
     ui.horizontal(|ui| {

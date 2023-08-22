@@ -5,7 +5,7 @@ use egui::{ScrollArea, Ui};
 use crate::data::{DiffData, Message};
 
 pub fn ui(ui: &mut Ui, diff_data: &DiffData, index: usize, sender: &Sender<Message>) {
-    puffin::profile_function!("FilesAreaWidget");
+    puffin::profile_function!("files_area::ui");
 
     let mut index = index;
     ui.vertical(|ui| {
