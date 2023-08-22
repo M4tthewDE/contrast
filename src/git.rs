@@ -19,7 +19,7 @@ pub struct Diff {
 
 impl Diff {
     fn new(old_file: PathBuf, new_file: PathBuf, headers: Vec<Header>, lines: Vec<Line>) -> Diff {
-        let longest_line = get_longest_line(lines.clone());
+        let longest_line = get_longest_line(&lines);
 
         let mut content = "".to_owned();
         let mut origins_content = "".to_owned();
@@ -89,9 +89,9 @@ impl Diff {
     }
 }
 
-fn get_longest_line(lines: Vec<Line>) -> usize {
+fn get_longest_line(lines: &Vec<Line>) -> usize {
     let mut longest_line = 0;
-    for line in &lines {
+    for line in lines {
         let line_no = match line.origin {
             '+' => line.new_lineno.unwrap_or(0),
             '-' => line.old_lineno.unwrap_or(0),
@@ -200,7 +200,7 @@ impl Stats {
 #[derive(Debug)]
 pub struct DiffParsingError;
 
-pub fn get_staged_diffs(path: String) -> Result<(Vec<Diff>, Stats), DiffParsingError> {
+pub fn get_staged_diffs(path: &String) -> Result<(Vec<Diff>, Stats), DiffParsingError> {
     let repo = Repository::open(path).map_err(|_| DiffParsingError)?;
     let head = repo
         .head()
@@ -214,7 +214,7 @@ pub fn get_staged_diffs(path: String) -> Result<(Vec<Diff>, Stats), DiffParsingE
     parse_diffs(diffs)
 }
 
-pub fn get_diffs(path: String) -> Result<(Vec<Diff>, Stats), DiffParsingError> {
+pub fn get_diffs(path: &String) -> Result<(Vec<Diff>, Stats), DiffParsingError> {
     let repo = Repository::open(path).map_err(|_| DiffParsingError)?;
     let diffs = repo
         .diff_index_to_workdir(None, None)

@@ -7,7 +7,7 @@ use crate::{
     ui::{code, line_numbers, origins},
 };
 
-pub fn ui(ui: &mut Ui, diff: Diff) {
+pub fn ui(ui: &mut Ui, diff: &Diff) {
     puffin::profile_function!("diff_area::ui");
 
     if diff.lines.is_empty() {

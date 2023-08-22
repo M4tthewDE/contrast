@@ -42,7 +42,7 @@ pub fn show(
             };
 
             ui.separator();
-            ui.heading(RichText::new(app_data.project_path.clone()).color(Color32::WHITE));
+            ui.heading(RichText::new(&app_data.project_path).color(Color32::WHITE));
             ui.separator();
 
             diff_type::ui(ui, control_data.diff_type.clone(), sender);
@@ -61,7 +61,7 @@ pub fn show(
                 ui.separator();
 
                 if let Some(diff) = diff_data.diffs.get(control_data.selected_diff_index) {
-                    diff_area::ui(ui, diff.clone());
+                    diff_area::ui(ui, diff);
                 }
             });
         }
@@ -73,7 +73,7 @@ pub fn error_dialog(ctx: &Context, control_data: &ControlData, sender: &Sender<M
         .collapsible(false)
         .resizable(true)
         .show(ctx, |ui| {
-            ui.label(RichText::new(control_data.error_information.clone()).strong());
+            ui.label(RichText::new(&control_data.error_information).strong());
             if ui.button("Close").clicked() {
                 sender
                     .send(Message::CloseError)

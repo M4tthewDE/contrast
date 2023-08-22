@@ -48,10 +48,12 @@ impl AppData {
             .to_str()
             .ok_or(AppDataCreationError::Parsing)?
             .to_owned();
+
         let (modified_diffs, modified_stats) =
-            git::get_diffs(project_path.clone()).map_err(|_| AppDataCreationError::Parsing)?;
-        let (staged_diffs, staged_stats) = git::get_staged_diffs(project_path.clone())
-            .map_err(|_| AppDataCreationError::Parsing)?;
+            git::get_diffs(&project_path).map_err(|_| AppDataCreationError::Parsing)?;
+
+        let (staged_diffs, staged_stats) =
+            git::get_staged_diffs(&project_path).map_err(|_| AppDataCreationError::Parsing)?;
 
         let modified_diff_data = DiffData {
             diffs: modified_diffs,
