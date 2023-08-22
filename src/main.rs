@@ -70,10 +70,7 @@ impl MyApp {
                 }
             },
             Err(err) => match err {
-                TryRecvError::Disconnected => {
-                    self.control_data.error_information = "Thread disconnected!".to_string();
-                    self.control_data.show_err_dialog = true;
-                }
+                TryRecvError::Disconnected => panic!("Channel closed unexpectedly!"),
                 TryRecvError::Empty => (),
             },
         }
