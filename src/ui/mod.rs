@@ -4,10 +4,7 @@ use egui::{Align, Color32, Context, Layout, RichText, Window};
 
 use crate::{
     data::{DiffType, Message},
-    ui::{
-        diff_type::DiffTypeSelection, files_area::FilesArea, selection_area::SelectionAreaWidget,
-        stats::StatsWidget,
-    },
+    ui::{diff_type::DiffTypeSelection, files_area::FilesArea, stats::StatsWidget},
     AppData, ControlData,
 };
 
@@ -37,7 +34,7 @@ pub fn show(
             puffin_egui::profiler_window(ctx);
         }
 
-        ui.add(SelectionAreaWidget::new(app_data.clone(), sender.clone()));
+        selection_area::ui(ui, app_data, sender);
 
         if let Some(app_data) = app_data {
             let diff_data = match control_data.diff_type {
