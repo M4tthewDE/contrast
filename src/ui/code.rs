@@ -35,10 +35,9 @@ impl Widget for CodeWidget {
             ui.fonts(|f| f.layout_job(layout_job))
         };
 
-        let Range { start, end } = self.range;
-        let end = std::cmp::min(end, self.diff.lines.len() + self.diff.headers.len());
-
         let lines = self.diff.content.lines().collect::<Vec<&str>>();
+        let Range { start, end } = self.range;
+        let end = std::cmp::min(end, lines.len());
         let content = &lines[start..end].join("\n");
 
         ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
