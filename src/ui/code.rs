@@ -3,55 +3,43 @@ use std::ops::Range;
 use egui::{
     text::LayoutJob,
     util::cache::{ComputerMut, FrameCache},
-    Color32, Context, FontFamily, FontId, Layout, Response, TextEdit, TextFormat, Ui, Widget,
+    Color32, Context, FontFamily, FontId, Layout, Response, TextEdit, TextFormat, Ui,
 };
 
 use crate::git::Diff;
 
-pub struct CodeWidget {
-    diff: Diff,
-    range: Range<usize>,
-}
+pub fn ui(ui: &mut Ui, diff: Diff, range: Range<usize>) -> Response {
+    puffin::profile_function!("CodeWidget");
 
-impl CodeWidget {
-    pub fn new(diff: Diff, range: Range<usize>) -> CodeWidget {
-        CodeWidget { diff, range }
-    }
-}
-impl Widget for CodeWidget {
-    fn ui(self, ui: &mut Ui) -> Response {
-        puffin::profile_function!("CodeWidget");
+    let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
+        let layout_job: egui::text::LayoutJob = highlight(
+            ui.ctx(),
+            string,
+            range.start,
+            &diff.header_indices,
+            &diff.insertion_indices,
+            &diff.deletion_indices,
+            &diff.neutral_indices,
+        );
+        ui.fonts(|f| f.layout_job(layout_job))
+    };
 
-        let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
-            let layout_job: egui::text::LayoutJob = highlight(
-                ui.ctx(),
-                string,
-                self.range.start,
-                &self.diff.header_indices,
-                &self.diff.insertion_indices,
-                &self.diff.deletion_indices,
-                &self.diff.neutral_indices,
-            );
-            ui.fonts(|f| f.layout_job(layout_job))
-        };
+    let lines = diff.content.lines().collect::<Vec<&str>>();
+    let Range { start, end } = range;
+    let end = std::cmp::min(end, lines.len());
+    let content = &lines[start..end].join("\n");
 
-        let lines = self.diff.content.lines().collect::<Vec<&str>>();
-        let Range { start, end } = self.range;
-        let end = std::cmp::min(end, lines.len());
-        let content = &lines[start..end].join("\n");
-
-        ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
-            puffin::profile_function!("ui.with_layout");
-            ui.add(
-                TextEdit::multiline(&mut content.as_str())
-                    .desired_width(f32::INFINITY)
-                    .frame(false)
-                    .code_editor()
-                    .layouter(&mut layouter),
-            );
-        })
-        .response
-    }
+    ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
+        puffin::profile_function!("ui.with_layout");
+        ui.add(
+            TextEdit::multiline(&mut content.as_str())
+                .desired_width(f32::INFINITY)
+                .frame(false)
+                .code_editor()
+                .layouter(&mut layouter),
+        );
+    })
+    .response
 }
 
 type HighlightCache = FrameCache<LayoutJob, LayoutHandler>;

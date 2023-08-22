@@ -3,44 +3,31 @@ use std::ops::Range;
 use egui::{
     text::LayoutJob,
     util::cache::{ComputerMut, FrameCache},
-    Color32, Context, FontFamily, FontId, Response, TextEdit, TextFormat, Ui, Widget,
+    Color32, Context, FontFamily, FontId, TextEdit, TextFormat, Ui,
 };
 
 use crate::git::Diff;
 
-pub struct OriginsWidget {
-    diff: Diff,
-    range: Range<usize>,
-}
+pub fn ui(ui: &mut Ui, diff: Diff, range: Range<usize>) {
+    puffin::profile_function!("OriginsWidget");
 
-impl OriginsWidget {
-    pub fn new(diff: Diff, range: Range<usize>) -> OriginsWidget {
-        OriginsWidget { diff, range }
-    }
-}
+    let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
+        let layout_job: egui::text::LayoutJob = origins_highlight(ui.ctx(), string);
+        ui.fonts(|f| f.layout_job(layout_job))
+    };
 
-impl Widget for OriginsWidget {
-    fn ui(self, ui: &mut Ui) -> Response {
-        puffin::profile_function!("OriginsWidget");
+    let lines = diff.origins_content.lines().collect::<Vec<&str>>();
+    let Range { start, end } = range;
+    let end = std::cmp::min(end, lines.len());
 
-        let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
-            let layout_job: egui::text::LayoutJob = origins_highlight(ui.ctx(), string);
-            ui.fonts(|f| f.layout_job(layout_job))
-        };
-
-        let lines = self.diff.origins_content.lines().collect::<Vec<&str>>();
-        let Range { start, end } = self.range;
-        let end = std::cmp::min(end, lines.len());
-
-        let mut content = lines[start..end].join("\n");
-        ui.add(
-            TextEdit::multiline(&mut content)
-                .desired_width(0.0)
-                .frame(false)
-                .interactive(false)
-                .layouter(&mut layouter),
-        )
-    }
+    let mut content = lines[start..end].join("\n");
+    ui.add(
+        TextEdit::multiline(&mut content)
+            .desired_width(0.0)
+            .frame(false)
+            .interactive(false)
+            .layouter(&mut layouter),
+    );
 }
 
 type OriginsHighlightCache = FrameCache<LayoutJob, OriginsLayoutHandler>;

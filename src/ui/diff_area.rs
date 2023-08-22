@@ -2,7 +2,7 @@ use egui::{Color32, RichText, ScrollArea, Ui};
 
 use crate::{
     git::Diff,
-    ui::{code::CodeWidget, line_numbers::LineNumbersWidget, origins::OriginsWidget},
+    ui::{code, line_numbers, origins},
 };
 
 pub fn ui(ui: &mut Ui, diff: Diff) {
@@ -20,9 +20,9 @@ pub fn ui(ui: &mut Ui, diff: Diff) {
             .auto_shrink([false, false])
             .show_rows(ui, 10.0, total_rows, |ui, row_range| {
                 ui.horizontal(|ui| {
-                    ui.add(LineNumbersWidget::new(diff.clone(), row_range.clone()));
-                    ui.add(OriginsWidget::new(diff.clone(), row_range.clone()));
-                    ui.add(CodeWidget::new(diff.clone(), row_range.clone()));
+                    line_numbers::ui(ui, diff.clone(), row_range.clone());
+                    origins::ui(ui, diff.clone(), row_range.clone());
+                    code::ui(ui, diff.clone(), row_range.clone());
                 });
             });
     });
