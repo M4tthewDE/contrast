@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use egui::{Color32, RichText, ScrollArea, Ui};
 
 use crate::{
@@ -19,10 +21,11 @@ pub fn ui(ui: &mut Ui, diff: Diff) {
             .id_source("diff area")
             .auto_shrink([false, false])
             .show_rows(ui, 10.0, total_rows, |ui, row_range| {
+                let Range { start, end } = row_range;
                 ui.horizontal(|ui| {
-                    line_numbers::ui(ui, diff.clone(), row_range.clone());
-                    origins::ui(ui, diff.clone(), row_range.clone());
-                    code::ui(ui, diff.clone(), row_range.clone());
+                    line_numbers::ui(ui, &diff, start, end);
+                    origins::ui(ui, &diff, start, end);
+                    code::ui(ui, &diff, start, end);
                 });
             });
     });

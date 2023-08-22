@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use egui::{
     text::LayoutJob,
     util::cache::{ComputerMut, FrameCache},
@@ -8,7 +6,7 @@ use egui::{
 
 use crate::git::Diff;
 
-pub fn ui(ui: &mut Ui, diff: Diff, range: Range<usize>) {
+pub fn ui(ui: &mut Ui, diff: &Diff, start: usize, end: usize) {
     puffin::profile_function!("OriginsWidget");
 
     let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
@@ -17,7 +15,6 @@ pub fn ui(ui: &mut Ui, diff: Diff, range: Range<usize>) {
     };
 
     let lines = diff.origins_content.lines().collect::<Vec<&str>>();
-    let Range { start, end } = range;
     let end = std::cmp::min(end, lines.len());
 
     let mut content = lines[start..end].join("\n");

@@ -1,14 +1,11 @@
-use std::ops::Range;
-
 use egui::{Color32, Response, RichText, Ui};
 
 use crate::git::Diff;
 
-pub fn ui(ui: &mut Ui, diff: Diff, range: Range<usize>) -> Response {
+pub fn ui(ui: &mut Ui, diff: &Diff, start: usize, end: usize) -> Response {
     puffin::profile_function!("LineNumbersWidget");
 
     let lines = diff.lines_content.lines().collect::<Vec<&str>>();
-    let Range { start, end } = range;
     let end = std::cmp::min(end, lines.len());
 
     let content = &lines[start..end].join("\n");
