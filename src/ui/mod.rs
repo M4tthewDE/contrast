@@ -5,8 +5,8 @@ use egui::{Align, Color32, Context, Layout, RichText, Window};
 use crate::{
     data::{DiffType, Message},
     ui::{
-        diff_area::DiffAreaWidget, diff_type::DiffTypeSelection, files_area::FilesArea,
-        selection_area::SelectionAreaWidget, stats::StatsWidget,
+        diff_type::DiffTypeSelection, files_area::FilesArea, selection_area::SelectionAreaWidget,
+        stats::StatsWidget,
     },
     AppData, ControlData,
 };
@@ -72,7 +72,7 @@ pub fn show(
                 ui.separator();
 
                 if let Some(diff) = diff_data.diffs.get(control_data.selected_diff_index) {
-                    ui.add(DiffAreaWidget::new(diff.clone()));
+                    diff_area::ui(ui, diff.clone());
                 }
             });
         }
