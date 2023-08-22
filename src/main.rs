@@ -57,7 +57,27 @@ impl MyApp {
                         Err(_) => s.send(Message::ShowError("Error loading diff!".to_string())),
                     });
                 }
-                Message::UpdateAppData(app_data) => self.app_data = Some(app_data),
+                Message::UpdateAppData(app_data) => {
+                    // Switch to view which has files, if current has none
+                    match self.control_data.diff_type {
+                        data::DiffType::Modified => {
+                            if app_data.modified_diff_data.stats.files_changed == 0
+                                && app_data.staged_diff_data.stats.files_changed != 0
+                            {
+                                self.control_data.diff_type = data::DiffType::Staged
+                            }
+                        }
+                        data::DiffType::Staged => {
+                            if app_data.staged_diff_data.stats.files_changed == 0
+                                && app_data.modified_diff_data.stats.files_changed != 0
+                            {
+                                self.control_data.diff_type = data::DiffType::Modified
+                            }
+                        }
+                    };
+
+                    self.app_data = Some(app_data);
+                }
                 Message::ChangeDiffType(diff_type) => self.control_data.diff_type = diff_type,
                 Message::ChangeSelectedDiffIndex(i) => self.control_data.selected_diff_index = i,
                 Message::ShowError(error) => {
