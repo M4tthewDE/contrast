@@ -30,14 +30,7 @@ fn main() -> Result<(), eframe::Error> {
         Some(relative_path) => {
             let path = PathBuf::from(relative_path);
             match fs::canonicalize(path) {
-                Ok(p) => Some(PathBuf::from(
-                    p.to_str()
-                        .unwrap()
-                        .to_string()
-                        // windows, am i rite?
-                        .strip_prefix(&"\\\\?\\".to_string())
-                        .unwrap(),
-                )),
+                Ok(p) => Some(PathBuf::from(p)),
                 Err(err) => {
                     eprintln!("Invalid path: {err}");
                     None
