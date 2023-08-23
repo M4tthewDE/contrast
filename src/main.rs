@@ -4,7 +4,7 @@ use std::{
     thread,
 };
 
-use data::{AppData, ControlData, Message};
+use data::{AppData, ControlData, DiffType, Message};
 
 use eframe::egui;
 use egui::Context;
@@ -47,6 +47,27 @@ impl MyApp {
         }
     }
 
+    fn update_app_data(&mut self) {
+        if let Some(app_data) = &self.app_data {
+            match self.control_data.diff_type {
+                DiffType::Modified => {
+                    if app_data.modified_diff_data.stats.files_changed == 0
+                        && app_data.staged_diff_data.stats.files_changed != 0
+                    {
+                        self.control_data.diff_type = DiffType::Staged
+                    }
+                }
+                DiffType::Staged => {
+                    if app_data.staged_diff_data.stats.files_changed == 0
+                        && app_data.modified_diff_data.stats.files_changed != 0
+                    {
+                        self.control_data.diff_type = DiffType::Modified
+                    }
+                }
+            }
+        }
+    }
+
     fn handle_messages(&mut self) {
         match self.receiver.try_recv() {
             Ok(msg) => match msg {
@@ -57,7 +78,10 @@ impl MyApp {
                         Err(_) => s.send(Message::ShowError("Error loading diff!".to_string())),
                     });
                 }
-                Message::UpdateAppData(app_data) => self.app_data = Some(app_data),
+                Message::UpdateAppData(app_data) => {
+                    self.app_data = Some(app_data);
+                    self.update_app_data();
+                }
                 Message::ChangeDiffType(diff_type) => self.control_data.diff_type = diff_type,
                 Message::ChangeSelectedDiffIndex(i) => self.control_data.selected_diff_index = i,
                 Message::ShowError(error) => {

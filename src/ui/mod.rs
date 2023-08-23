@@ -40,32 +40,9 @@ pub fn show(
         ui.add(SelectionAreaWidget::new(app_data.clone(), sender.clone()));
 
         if let Some(app_data) = app_data {
-            // Switch to view which has files, if current has none
             let diff_data = match control_data.diff_type {
-                DiffType::Modified => {
-                    if app_data.modified_diff_data.stats.files_changed == 0
-                        && app_data.staged_diff_data.stats.files_changed != 0
-                    {
-                        sender
-                            .send(Message::ChangeDiffType(DiffType::Staged))
-                            .expect("Channel closed unexpectedly!");
-                        &app_data.staged_diff_data
-                    } else {
-                        &app_data.modified_diff_data
-                    }
-                }
-                DiffType::Staged => {
-                    if app_data.staged_diff_data.stats.files_changed == 0
-                        && app_data.modified_diff_data.stats.files_changed != 0
-                    {
-                        sender
-                            .send(Message::ChangeDiffType(DiffType::Modified))
-                            .expect("Channel closed unexpectedly!");
-                        &app_data.modified_diff_data
-                    } else {
-                        &app_data.staged_diff_data
-                    }
-                }
+                DiffType::Modified => &app_data.modified_diff_data,
+                DiffType::Staged => &app_data.staged_diff_data,
             };
 
             ui.separator();
