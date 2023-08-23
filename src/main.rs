@@ -145,6 +145,7 @@ impl MyApp {
         }
 
         let mut should_refresh = self.control_data.should_refresh.lock().unwrap();
+
         if *should_refresh {
             if let Some(app_data) = &self.app_data {
                 self.sender
@@ -167,28 +168,46 @@ fn get_gitignore(path: &Path) -> Result<Gitignore, Error> {
     Ok(gitignore)
 }
 
+struct WatcherError;
+
 // TODO: error handling
-fn run_watcher(path: PathBuf, should_refresh: Arc<Mutex<bool>>, sender: Sender<Message>) {
+fn run_watcher(
+    path: PathBuf,
+    should_refresh: Arc<Mutex<bool>>,
+    sender: Sender<Message>,
+) -> Result<(), WatcherError> {
     puffin::profile_function!();
 
-    let gitignore = get_gitignore(&path).unwrap();
+    let gitignore = get_gitignore(&path).map_err(|_| WatcherError {})?;
+
+    let s = sender.clone();
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<Event>| match res {
         Ok(event) => {
             for p in &event.paths {
                 if !gitignore.matched_path_or_any_parents(p, false).is_ignore() {
-                    let mut test = should_refresh.lock().unwrap();
-                    *test = true;
+                    match should_refresh.lock() {
+                        Ok(mut sr) => *sr = true,
+                        Err(_) => {
+                            s.send(Message::ShowError("Error acquiring mutex".to_string()))
+                                .expect("");
+                        }
+                    }
                 }
             }
         }
         Err(e) => println!("watch error: {:?}", e),
     })
-    .unwrap();
+    .map_err(|_| WatcherError {})?;
 
-    watcher.watch(&path, RecursiveMode::Recursive).unwrap();
+    watcher
+        .watch(&path, RecursiveMode::Recursive)
+        .map_err(|_| WatcherError {})?;
+
     sender
         .send(Message::UpdateWatcher(watcher))
         .expect("Channel closed unexpectedly!");
+
+    Ok(())
 }
 
 impl eframe::App for MyApp {
