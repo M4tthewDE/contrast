@@ -138,7 +138,16 @@ impl MyApp {
             },
         }
 
-        let mut should_refresh = self.control_data.should_refresh.lock().unwrap();
+        let mutex_guard = self.control_data.should_refresh.lock();
+        if mutex_guard.is_err() {
+            self.sender
+                .send(Message::ShowError("Error refreshing diff!".to_string()))
+                .expect("Channel closed unexpectedly!");
+            return;
+        }
+
+        // acceptable unwrap() since result is checked beforehand
+        let mut should_refresh = mutex_guard.unwrap();
 
         if *should_refresh {
             if let Some(app_data) = &self.app_data {
