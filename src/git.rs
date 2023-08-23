@@ -9,6 +9,8 @@ pub struct Diff {
     pub headers: Vec<Header>,
     pub lines: Vec<Line>,
     pub content: String,
+    pub origins_content: String,
+    pub lines_content: String,
     pub header_indices: Vec<usize>,
     pub insertion_indices: Vec<usize>,
     pub deletion_indices: Vec<usize>,
@@ -17,7 +19,11 @@ pub struct Diff {
 
 impl Diff {
     fn new(old_file: PathBuf, new_file: PathBuf, headers: Vec<Header>, lines: Vec<Line>) -> Diff {
+        let longest_line = get_longest_line(&lines);
+
         let mut content = "".to_owned();
+        let mut origins_content = "".to_owned();
+        let mut lines_content = "".to_owned();
         let mut header_indices = Vec::new();
         let mut insertion_indices = Vec::new();
         let mut deletion_indices = Vec::new();
@@ -31,11 +37,25 @@ impl Diff {
                     && line.origin != '-'
                 {
                     content.push_str(format!("{}\n", header.content).as_str());
+                    origins_content.push_str(" \n");
+                    lines_content.push_str(" \n");
                     header_indices.push(i);
                     i += 1;
                 }
             }
+            let mut line_no = match line.origin {
+                '+' => line.new_lineno.unwrap_or(0).to_string(),
+                '-' => line.old_lineno.unwrap_or(0).to_string(),
+                _ => line.new_lineno.unwrap_or(0).to_string(),
+            };
+
+            while line_no.len() != longest_line {
+                line_no = format!(" {}", line_no);
+            }
+
             content.push_str(format!("{}\n", line.content.as_str()).as_str());
+            origins_content.push_str(format!("{} \n", line.origin).as_str());
+            lines_content.push_str(format!("{}\n", line_no).as_str());
 
             match line.origin {
                 '+' => insertion_indices.push(i),
@@ -52,6 +72,8 @@ impl Diff {
             headers,
             lines,
             content,
+            origins_content,
+            lines_content,
             header_indices,
             insertion_indices,
             deletion_indices,
@@ -65,23 +87,23 @@ impl Diff {
             .unwrap_or("Error fetching file name")
             .to_owned()
     }
+}
 
-    pub fn get_longest_line(&self) -> usize {
-        let mut longest_line = 0;
-        for line in &self.lines {
-            let line_no = match line.origin {
-                '+' => line.new_lineno.unwrap_or(0),
-                '-' => line.old_lineno.unwrap_or(0),
-                _ => line.new_lineno.unwrap_or(0),
-            };
+fn get_longest_line(lines: &Vec<Line>) -> usize {
+    let mut longest_line = 0;
+    for line in lines {
+        let line_no = match line.origin {
+            '+' => line.new_lineno.unwrap_or(0),
+            '-' => line.old_lineno.unwrap_or(0),
+            _ => line.new_lineno.unwrap_or(0),
+        };
 
-            if line_no > longest_line {
-                longest_line = line_no;
-            }
+        if line_no > longest_line {
+            longest_line = line_no;
         }
-
-        longest_line.to_string().len()
     }
+
+    longest_line.to_string().len()
 }
 
 impl fmt::Display for Diff {
@@ -178,7 +200,7 @@ impl Stats {
 #[derive(Debug)]
 pub struct DiffParsingError;
 
-pub fn get_staged_diffs(path: String) -> Result<(Vec<Diff>, Stats), DiffParsingError> {
+pub fn get_staged_diffs(path: &String) -> Result<(Vec<Diff>, Stats), DiffParsingError> {
     let repo = Repository::open(path).map_err(|_| DiffParsingError)?;
     let head = repo
         .head()
@@ -192,7 +214,7 @@ pub fn get_staged_diffs(path: String) -> Result<(Vec<Diff>, Stats), DiffParsingE
     parse_diffs(diffs)
 }
 
-pub fn get_diffs(path: String) -> Result<(Vec<Diff>, Stats), DiffParsingError> {
+pub fn get_diffs(path: &String) -> Result<(Vec<Diff>, Stats), DiffParsingError> {
     let repo = Repository::open(path).map_err(|_| DiffParsingError)?;
     let diffs = repo
         .diff_index_to_workdir(None, None)

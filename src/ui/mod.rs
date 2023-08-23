@@ -4,10 +4,6 @@ use egui::{Align, Color32, Context, Layout, RichText, Window};
 
 use crate::{
     data::{DiffType, Message},
-    ui::{
-        diff_area::DiffAreaWidget, diff_type::DiffTypeSelection, files_area::FilesArea,
-        selection_area::SelectionAreaWidget, stats::StatsWidget,
-    },
     AppData, ControlData,
 };
 
@@ -37,7 +33,7 @@ pub fn show(
             puffin_egui::profiler_window(ctx);
         }
 
-        ui.add(SelectionAreaWidget::new(app_data.clone(), sender.clone()));
+        selection_area::ui(ui, app_data, sender);
 
         if let Some(app_data) = app_data {
             let diff_data = match control_data.diff_type {
@@ -46,14 +42,12 @@ pub fn show(
             };
 
             ui.separator();
-            ui.heading(RichText::new(app_data.project_path.clone()).color(Color32::WHITE));
+            ui.heading(RichText::new(&app_data.project_path).color(Color32::WHITE));
             ui.separator();
 
-            let mut diff_type_selection =
-                DiffTypeSelection::new(sender.clone(), control_data.diff_type.clone());
-            diff_type_selection.ui(ui);
+            diff_type::ui(ui, control_data.diff_type.clone(), sender);
 
-            ui.add(StatsWidget::new(diff_data.stats.clone()));
+            stats::ui(ui, &diff_data.stats);
 
             if diff_data.diffs.is_empty() {
                 return;
@@ -62,17 +56,12 @@ pub fn show(
             ui.separator();
 
             ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
-                let mut files_area = FilesArea::new(
-                    diff_data.clone(),
-                    control_data.selected_diff_index,
-                    sender.clone(),
-                );
+                files_area::ui(ui, &diff_data, control_data.selected_diff_index, sender);
 
-                files_area.ui(ui);
                 ui.separator();
 
                 if let Some(diff) = diff_data.diffs.get(control_data.selected_diff_index) {
-                    ui.add(DiffAreaWidget::new(diff.clone()));
+                    diff_area::ui(ui, diff);
                 }
             });
         }
@@ -84,7 +73,7 @@ pub fn error_dialog(ctx: &Context, control_data: &ControlData, sender: &Sender<M
         .collapsible(false)
         .resizable(true)
         .show(ctx, |ui| {
-            ui.label(RichText::new(control_data.error_information.clone()).strong());
+            ui.label(RichText::new(&control_data.error_information).strong());
             if ui.button("Close").clicked() {
                 sender
                     .send(Message::CloseError)

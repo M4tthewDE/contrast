@@ -1,51 +1,33 @@
-use egui::{Color32, Response, RichText, ScrollArea, Ui, Widget};
+use std::ops::Range;
+
+use egui::{Color32, RichText, ScrollArea, Ui};
 
 use crate::{
     git::Diff,
-    ui::{code::CodeWidget, line_numbers::LineNumbersWidget, origins::OriginsWidget},
+    ui::{code, line_numbers, origins},
 };
 
-pub struct DiffAreaWidget {
-    diff: Diff,
-}
+pub fn ui(ui: &mut Ui, diff: &Diff) {
+    puffin::profile_function!("diff_area::ui");
 
-impl DiffAreaWidget {
-    pub fn new(diff: Diff) -> DiffAreaWidget {
-        DiffAreaWidget { diff }
+    if diff.lines.is_empty() {
+        ui.label(RichText::new("No content").color(Color32::GRAY));
+        return;
     }
-}
 
-impl Widget for DiffAreaWidget {
-    fn ui(self, ui: &mut Ui) -> Response {
-        puffin::profile_function!("DiffAreaWidget");
-        if self.diff.lines.is_empty() {
-            return ui.label(RichText::new("No content").color(Color32::GRAY));
-        }
+    let total_rows = diff.lines.len() + diff.headers.len();
 
-        let longest_line = self.diff.get_longest_line();
-        let total_rows = self.diff.lines.len() + self.diff.headers.len();
-
-        ui.vertical(|ui| {
-            ScrollArea::both()
-                .id_source("diff area")
-                .auto_shrink([false, false])
-                .show_rows(ui, 10.0, total_rows, |ui, row_range| {
-                    ui.horizontal(|ui| {
-                        ui.add(LineNumbersWidget::new(
-                            longest_line,
-                            self.diff.lines.clone(),
-                            self.diff.headers.clone(),
-                            row_range.clone(),
-                        ));
-                        ui.add(OriginsWidget::new(
-                            self.diff.lines.clone(),
-                            self.diff.headers.clone(),
-                            row_range.clone(),
-                        ));
-                        ui.add(CodeWidget::new(self.diff.clone(), row_range.clone()));
-                    });
+    ui.vertical(|ui| {
+        ScrollArea::both()
+            .id_source("diff area")
+            .auto_shrink([false, false])
+            .show_rows(ui, 10.0, total_rows, |ui, row_range| {
+                let Range { start, end } = row_range;
+                ui.horizontal(|ui| {
+                    line_numbers::ui(ui, &diff, start, end);
+                    origins::ui(ui, &diff, start, end);
+                    code::ui(ui, &diff, start, end);
                 });
-        })
-        .response
-    }
+            });
+    });
 }

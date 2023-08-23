@@ -1,62 +1,30 @@
-use std::ops::Range;
-
 use egui::{
     text::LayoutJob,
     util::cache::{ComputerMut, FrameCache},
-    Color32, Context, FontFamily, FontId, Response, TextEdit, TextFormat, Ui, Widget,
+    Color32, Context, FontFamily, FontId, TextEdit, TextFormat, Ui,
 };
 
-use crate::git::{Header, Line};
+use crate::git::Diff;
 
-pub struct OriginsWidget {
-    lines: Vec<Line>,
-    headers: Vec<Header>,
-    range: Range<usize>,
-}
+pub fn ui(ui: &mut Ui, diff: &Diff, start: usize, end: usize) {
+    puffin::profile_function!("origins::ui");
 
-impl OriginsWidget {
-    pub fn new(lines: Vec<Line>, headers: Vec<Header>, range: Range<usize>) -> OriginsWidget {
-        OriginsWidget {
-            lines,
-            headers,
-            range,
-        }
-    }
-}
+    let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
+        let layout_job: egui::text::LayoutJob = origins_highlight(ui.ctx(), string);
+        ui.fonts(|f| f.layout_job(layout_job))
+    };
 
-impl Widget for OriginsWidget {
-    fn ui(self, ui: &mut Ui) -> Response {
-        puffin::profile_function!("OriginsWidget");
+    let lines = diff.origins_content.lines().collect::<Vec<&str>>();
+    let end = std::cmp::min(end, lines.len());
 
-        let Range { start, end } = self.range;
-        let end = std::cmp::min(end, self.lines.len());
-
-        let mut content = "".to_owned();
-        for line in &self.lines[start..end] {
-            for header in &self.headers {
-                if header.line == line.new_lineno.unwrap_or(0)
-                    && line.origin != '+'
-                    && line.origin != '-'
-                {
-                    content.push_str(" \n");
-                }
-            }
-
-            content.push_str(format!("{} \n", line.origin).as_str());
-        }
-
-        let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
-            let layout_job: egui::text::LayoutJob = origins_highlight(ui.ctx(), string);
-            ui.fonts(|f| f.layout_job(layout_job))
-        };
-        ui.add(
-            TextEdit::multiline(&mut content)
-                .desired_width(0.0)
-                .frame(false)
-                .interactive(false)
-                .layouter(&mut layouter),
-        )
-    }
+    let mut content = lines[start..end].join("\n");
+    ui.add(
+        TextEdit::multiline(&mut content)
+            .desired_width(0.0)
+            .frame(false)
+            .interactive(false)
+            .layouter(&mut layouter),
+    );
 }
 
 type OriginsHighlightCache = FrameCache<LayoutJob, OriginsLayoutHandler>;

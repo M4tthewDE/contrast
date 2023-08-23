@@ -97,10 +97,7 @@ impl MyApp {
                 }
             },
             Err(err) => match err {
-                TryRecvError::Disconnected => {
-                    self.control_data.error_information = "Thread disconnected!".to_string();
-                    self.control_data.show_err_dialog = true;
-                }
+                TryRecvError::Disconnected => panic!("Channel closed unexpectedly!"),
                 TryRecvError::Empty => (),
             },
         }
@@ -112,8 +109,8 @@ impl eframe::App for MyApp {
         puffin::profile_function!();
         puffin::GlobalProfiler::lock().new_frame();
 
-        self.handle_messages();
+        ui::show(ctx, &self.app_data, &self.control_data, &self.sender);
 
-        ui::show(ctx, &self.app_data, &self.control_data, &self.sender)
+        self.handle_messages();
     }
 }
