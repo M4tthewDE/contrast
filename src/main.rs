@@ -117,11 +117,16 @@ impl MyApp {
                     if self.watcher.is_none() {
                         let p = app_data.project_path.clone();
                         let should_refresh = self.control_data.should_refresh.clone();
-                        self.watcher = Some(run_watcher(PathBuf::from(p), should_refresh));
+                        let sender = self.sender.clone();
+
+                        thread::spawn(move || {
+                            run_watcher(PathBuf::from(p), should_refresh, sender)
+                        });
                     }
 
                     self.app_data = Some(app_data);
                 }
+                Message::UpdateWatcher(watcher) => self.watcher = Some(watcher),
                 Message::ChangeDiffType(diff_type) => self.control_data.diff_type = diff_type,
                 Message::ChangeSelectedDiffIndex(i) => self.control_data.selected_diff_index = i,
                 Message::ShowError(error) => {
@@ -163,7 +168,7 @@ fn get_gitignore(path: &Path) -> Result<Gitignore, Error> {
 }
 
 // TODO: error handling
-fn run_watcher(path: PathBuf, should_refresh: Arc<Mutex<bool>>) -> RecommendedWatcher {
+fn run_watcher(path: PathBuf, should_refresh: Arc<Mutex<bool>>, sender: Sender<Message>) {
     puffin::profile_function!();
 
     let gitignore = get_gitignore(&path).unwrap();
@@ -181,7 +186,9 @@ fn run_watcher(path: PathBuf, should_refresh: Arc<Mutex<bool>>) -> RecommendedWa
     .unwrap();
 
     watcher.watch(&path, RecursiveMode::Recursive).unwrap();
-    watcher
+    sender
+        .send(Message::UpdateWatcher(watcher))
+        .expect("Channel closed unexpectedly!");
 }
 
 impl eframe::App for MyApp {

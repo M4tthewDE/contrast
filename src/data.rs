@@ -3,6 +3,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use notify::RecommendedWatcher;
+
 use crate::git::{self, Diff, Stats};
 
 #[derive(Default)]
@@ -80,6 +82,7 @@ impl AppData {
 pub enum Message {
     LoadDiff(PathBuf),
     UpdateAppData(AppData),
+    UpdateWatcher(RecommendedWatcher),
     ShowError(String),
     ChangeDiffType(DiffType),
     ChangeSelectedDiffIndex(usize),
