@@ -47,22 +47,20 @@ impl MyApp {
         }
     }
 
-    fn update_app_data(&mut self) {
-        if let Some(app_data) = &self.app_data {
-            match self.control_data.diff_type {
-                DiffType::Modified => {
-                    if app_data.modified_diff_data.stats.files_changed == 0
-                        && app_data.staged_diff_data.stats.files_changed != 0
-                    {
-                        self.control_data.diff_type = DiffType::Staged
-                    }
+    fn update_app_data(&mut self, app_data: &AppData) {
+        match self.control_data.diff_type {
+            DiffType::Modified => {
+                if app_data.modified_diff_data.stats.files_changed == 0
+                    && app_data.staged_diff_data.stats.files_changed != 0
+                {
+                    self.control_data.diff_type = DiffType::Staged
                 }
-                DiffType::Staged => {
-                    if app_data.staged_diff_data.stats.files_changed == 0
-                        && app_data.modified_diff_data.stats.files_changed != 0
-                    {
-                        self.control_data.diff_type = DiffType::Modified
-                    }
+            }
+            DiffType::Staged => {
+                if app_data.staged_diff_data.stats.files_changed == 0
+                    && app_data.modified_diff_data.stats.files_changed != 0
+                {
+                    self.control_data.diff_type = DiffType::Modified
                 }
             }
         }
@@ -79,8 +77,8 @@ impl MyApp {
                     });
                 }
                 Message::UpdateAppData(app_data) => {
+                    self.update_app_data(&app_data);
                     self.app_data = Some(app_data);
-                    self.update_app_data();
                 }
                 Message::ChangeDiffType(diff_type) => self.control_data.diff_type = diff_type,
                 Message::ChangeSelectedDiffIndex(i) => self.control_data.selected_diff_index = i,
