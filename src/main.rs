@@ -26,7 +26,16 @@ fn main() -> Result<(), eframe::Error> {
         ..Default::default()
     };
 
-    let path: Option<PathBuf> = match env::args().nth(1) {
+    let path = get_initial_path();
+    eframe::run_native(
+        "Contrast",
+        options,
+        Box::new(|_cc| Box::new(MyApp::new(path))),
+    )
+}
+
+fn get_initial_path() -> Option<PathBuf> {
+    match env::args().nth(1) {
         Some(relative_path) => {
             let path = PathBuf::from(relative_path);
             match fs::canonicalize(path) {
@@ -38,13 +47,7 @@ fn main() -> Result<(), eframe::Error> {
             }
         }
         None => None,
-    };
-
-    eframe::run_native(
-        "Contrast",
-        options,
-        Box::new(|_cc| Box::new(MyApp::new(path))),
-    )
+    }
 }
 
 struct MyApp {
@@ -58,20 +61,18 @@ impl MyApp {
     fn new(path: Option<PathBuf>) -> MyApp {
         let (sender, receiver) = mpsc::channel();
 
-        let app = MyApp {
-            app_data: None,
-            control_data: ControlData::default(),
-            sender,
-            receiver,
-        };
-
         if let Some(path) = path {
-            app.sender
+            sender
                 .send(Message::LoadDiff(path))
                 .expect("Channel closed unexpectedly!");
         }
 
-        app
+        MyApp {
+            app_data: None,
+            control_data: ControlData::default(),
+            sender,
+            receiver,
+        }
     }
 
     fn handle_messages(&mut self) {
