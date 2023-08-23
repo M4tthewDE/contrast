@@ -35,19 +35,15 @@ fn main() -> Result<(), eframe::Error> {
 }
 
 fn get_initial_path() -> Option<PathBuf> {
-    match env::args().nth(1) {
-        Some(relative_path) => {
-            let path = PathBuf::from(relative_path);
-            match fs::canonicalize(path) {
-                Ok(p) => Some(p),
-                Err(err) => {
-                    eprintln!("Invalid path: {err}");
-                    None
-                }
-            }
-        }
-        None => None,
-    }
+    env::args().nth(1).map(PathBuf::from).and_then(|p| {
+        fs::canonicalize(p).map_or_else(
+            |e| {
+                eprintln!("Invalid path: {e}");
+                None
+            },
+            Some,
+        )
+    })
 }
 
 struct MyApp {
