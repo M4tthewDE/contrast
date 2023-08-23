@@ -1,10 +1,7 @@
 use std::{
     env, fs,
-    path::{Path, PathBuf},
-    sync::{
-        mpsc::{self, Receiver, Sender, TryRecvError},
-        Arc, Mutex,
-    },
+    path::PathBuf,
+    sync::mpsc::{self, Receiver, Sender, TryRecvError},
     thread::{self},
 };
 
@@ -12,12 +9,12 @@ use data::{AppData, ControlData, DiffType, Message};
 
 use eframe::egui;
 use egui::Context;
-use ignore::{gitignore::Gitignore, Error};
-use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::RecommendedWatcher;
 
 mod data;
 mod git;
 mod ui;
+mod watcher;
 
 fn main() -> Result<(), eframe::Error> {
     if env::var("PROFILING").is_ok() {
@@ -95,6 +92,14 @@ impl MyApp {
                 }
             }
         }
+
+        if self.watcher.is_none() {
+            let p = app_data.project_path.clone();
+            let should_refresh = self.control_data.should_refresh.clone();
+            let sender = self.sender.clone();
+
+            thread::spawn(move || watcher::run_watcher(PathBuf::from(p), should_refresh, sender));
+        }
     }
 
     fn handle_messages(&mut self) {
@@ -113,17 +118,6 @@ impl MyApp {
                 }
                 Message::UpdateAppData(app_data) => {
                     self.update_app_data(&app_data);
-
-                    if self.watcher.is_none() {
-                        let p = app_data.project_path.clone();
-                        let should_refresh = self.control_data.should_refresh.clone();
-                        let sender = self.sender.clone();
-
-                        thread::spawn(move || {
-                            run_watcher(PathBuf::from(p), should_refresh, sender)
-                        });
-                    }
-
                     self.app_data = Some(app_data);
                 }
                 Message::UpdateWatcher(watcher) => self.watcher = Some(watcher),
@@ -157,57 +151,6 @@ impl MyApp {
             *should_refresh = false;
         }
     }
-}
-
-fn get_gitignore(path: &Path) -> Result<Gitignore, Error> {
-    puffin::profile_function!();
-    let (gitignore, error) = Gitignore::new(path.join(".gitignore"));
-    if let Some(e) = error {
-        return Err(e);
-    }
-    Ok(gitignore)
-}
-
-struct WatcherError;
-
-// TODO: error handling
-fn run_watcher(
-    path: PathBuf,
-    should_refresh: Arc<Mutex<bool>>,
-    sender: Sender<Message>,
-) -> Result<(), WatcherError> {
-    puffin::profile_function!();
-
-    let gitignore = get_gitignore(&path).map_err(|_| WatcherError {})?;
-
-    let s = sender.clone();
-    let mut watcher = notify::recommended_watcher(move |res: notify::Result<Event>| match res {
-        Ok(event) => {
-            for p in &event.paths {
-                if !gitignore.matched_path_or_any_parents(p, false).is_ignore() {
-                    match should_refresh.lock() {
-                        Ok(mut sr) => *sr = true,
-                        Err(_) => {
-                            s.send(Message::ShowError("Error acquiring mutex".to_string()))
-                                .expect("");
-                        }
-                    }
-                }
-            }
-        }
-        Err(e) => println!("watch error: {:?}", e),
-    })
-    .map_err(|_| WatcherError {})?;
-
-    watcher
-        .watch(&path, RecursiveMode::Recursive)
-        .map_err(|_| WatcherError {})?;
-
-    sender
-        .send(Message::UpdateWatcher(watcher))
-        .expect("Channel closed unexpectedly!");
-
-    Ok(())
 }
 
 impl eframe::App for MyApp {
