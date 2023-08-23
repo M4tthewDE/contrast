@@ -1,14 +1,19 @@
 use std::{
     env, fs,
-    path::PathBuf,
-    sync::mpsc::{self, Receiver, Sender, TryRecvError},
-    thread,
+    path::{Path, PathBuf},
+    sync::{
+        mpsc::{self, Receiver, Sender, TryRecvError},
+        Arc, Mutex,
+    },
+    thread::{self},
 };
 
 use data::{AppData, ControlData, DiffType, Message};
 
 use eframe::egui;
 use egui::Context;
+use ignore::{gitignore::Gitignore, Error};
+use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 
 mod data;
 mod git;
@@ -51,6 +56,7 @@ struct MyApp {
     control_data: ControlData,
     sender: Sender<Message>,
     receiver: Receiver<Message>,
+    watcher: Option<RecommendedWatcher>,
 }
 
 impl MyApp {
@@ -68,6 +74,7 @@ impl MyApp {
             control_data: ControlData::default(),
             sender,
             receiver,
+            watcher: None,
         }
     }
 
@@ -96,12 +103,23 @@ impl MyApp {
                 Message::LoadDiff(path) => {
                     let s = self.sender.clone();
                     thread::spawn(move || match AppData::from_pathbuf(path) {
-                        Ok(app_data) => s.send(Message::UpdateAppData(app_data)),
-                        Err(_) => s.send(Message::ShowError("Error loading diff!".to_string())),
+                        Ok(app_data) => s
+                            .send(Message::UpdateAppData(app_data))
+                            .expect("Channel closed unexpectedly!"),
+                        Err(_) => s
+                            .send(Message::ShowError("Error loading diff!".to_string()))
+                            .expect("Channel closed unexpectedly!"),
                     });
                 }
                 Message::UpdateAppData(app_data) => {
                     self.update_app_data(&app_data);
+
+                    if self.watcher.is_none() {
+                        let p = app_data.project_path.clone();
+                        let should_refresh = self.control_data.should_refresh.clone();
+                        self.watcher = Some(run_watcher(PathBuf::from(p), should_refresh));
+                    }
+
                     self.app_data = Some(app_data);
                 }
                 Message::ChangeDiffType(diff_type) => self.control_data.diff_type = diff_type,
@@ -120,7 +138,50 @@ impl MyApp {
                 TryRecvError::Empty => (),
             },
         }
+
+        let mut should_refresh = self.control_data.should_refresh.lock().unwrap();
+        if *should_refresh {
+            if let Some(app_data) = &self.app_data {
+                self.sender
+                    .send(Message::LoadDiff(PathBuf::from(
+                        app_data.project_path.clone(),
+                    )))
+                    .expect("Channel closed unexpectedly!");
+            }
+            *should_refresh = false;
+        }
     }
+}
+
+fn get_gitignore(path: &Path) -> Result<Gitignore, Error> {
+    puffin::profile_function!();
+    let (gitignore, error) = Gitignore::new(path.join(".gitignore"));
+    if let Some(e) = error {
+        return Err(e);
+    }
+    Ok(gitignore)
+}
+
+// TODO: error handling
+fn run_watcher(path: PathBuf, should_refresh: Arc<Mutex<bool>>) -> RecommendedWatcher {
+    puffin::profile_function!();
+
+    let gitignore = get_gitignore(&path).unwrap();
+    let mut watcher = notify::recommended_watcher(move |res: notify::Result<Event>| match res {
+        Ok(event) => {
+            for p in &event.paths {
+                if !gitignore.matched_path_or_any_parents(p, false).is_ignore() {
+                    let mut test = should_refresh.lock().unwrap();
+                    *test = true;
+                }
+            }
+        }
+        Err(e) => println!("watch error: {:?}", e),
+    })
+    .unwrap();
+
+    watcher.watch(&path, RecursiveMode::Recursive).unwrap();
+    watcher
 }
 
 impl eframe::App for MyApp {

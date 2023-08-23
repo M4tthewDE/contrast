@@ -1,4 +1,7 @@
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use crate::git::{self, Diff, Stats};
 
@@ -8,6 +11,7 @@ pub struct ControlData {
     pub error_information: String,
     pub diff_type: DiffType,
     pub selected_diff_index: usize,
+    pub should_refresh: Arc<Mutex<bool>>,
 }
 
 #[derive(Clone)]
