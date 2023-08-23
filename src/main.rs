@@ -1,5 +1,6 @@
 use std::{
-    env,
+    env, fs,
+    path::PathBuf,
     sync::mpsc::{self, Receiver, Sender, TryRecvError},
     thread,
 };
@@ -25,7 +26,24 @@ fn main() -> Result<(), eframe::Error> {
         ..Default::default()
     };
 
-    eframe::run_native("Contrast", options, Box::new(|_cc| Box::new(MyApp::new())))
+    let path = get_initial_path();
+    eframe::run_native(
+        "Contrast",
+        options,
+        Box::new(|_cc| Box::new(MyApp::new(path))),
+    )
+}
+
+fn get_initial_path() -> Option<PathBuf> {
+    env::args().nth(1).map(PathBuf::from).and_then(|p| {
+        fs::canonicalize(p).map_or_else(
+            |e| {
+                eprintln!("Invalid path: {e}");
+                None
+            },
+            Some,
+        )
+    })
 }
 
 struct MyApp {
@@ -36,8 +54,14 @@ struct MyApp {
 }
 
 impl MyApp {
-    fn new() -> MyApp {
+    fn new(path: Option<PathBuf>) -> MyApp {
         let (sender, receiver) = mpsc::channel();
+
+        if let Some(path) = path {
+            sender
+                .send(Message::LoadDiff(path))
+                .expect("Channel closed unexpectedly!");
+        }
 
         MyApp {
             app_data: None,
