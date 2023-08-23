@@ -347,14 +347,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_works() {
-        let (diffs, _) = get_diffs(".".to_owned()).unwrap();
-        for diff in diffs {
-            println!("{:#?}", diff);
-        }
-    }
-
-    #[test]
     fn parse_header() {
         let header =
             Header::new("@@ -209,6 +222,33 @@ impl fmt::Display for Diff {".to_string()).unwrap();
