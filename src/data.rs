@@ -1,4 +1,9 @@
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
+
+use notify::RecommendedWatcher;
 
 use crate::git::{self, Diff, Stats};
 
@@ -8,6 +13,7 @@ pub struct ControlData {
     pub error_information: String,
     pub diff_type: DiffType,
     pub selected_diff_index: usize,
+    pub should_refresh: Arc<Mutex<bool>>,
 }
 
 #[derive(Clone)]
@@ -76,6 +82,7 @@ impl AppData {
 pub enum Message {
     LoadDiff(PathBuf),
     UpdateAppData(AppData),
+    UpdateWatcher(RecommendedWatcher),
     ShowError(String),
     ChangeDiffType(DiffType),
     ChangeSelectedDiffIndex(usize),

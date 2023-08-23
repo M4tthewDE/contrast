@@ -2,17 +2,19 @@ use std::{
     env, fs,
     path::PathBuf,
     sync::mpsc::{self, Receiver, Sender, TryRecvError},
-    thread,
+    thread::{self},
 };
 
 use data::{AppData, ControlData, DiffType, Message};
 
 use eframe::egui;
 use egui::Context;
+use notify::RecommendedWatcher;
 
 mod data;
 mod git;
 mod ui;
+mod watcher;
 
 fn main() -> Result<(), eframe::Error> {
     if env::var("PROFILING").is_ok() {
@@ -51,6 +53,7 @@ struct MyApp {
     control_data: ControlData,
     sender: Sender<Message>,
     receiver: Receiver<Message>,
+    watcher: Option<RecommendedWatcher>,
 }
 
 impl MyApp {
@@ -68,6 +71,7 @@ impl MyApp {
             control_data: ControlData::default(),
             sender,
             receiver,
+            watcher: None,
         }
     }
 
@@ -88,6 +92,14 @@ impl MyApp {
                 }
             }
         }
+
+        if self.watcher.is_none() {
+            let p = app_data.project_path.clone();
+            let should_refresh = self.control_data.should_refresh.clone();
+            let sender = self.sender.clone();
+
+            thread::spawn(move || watcher::run_watcher(PathBuf::from(p), should_refresh, sender));
+        }
     }
 
     fn handle_messages(&mut self) {
@@ -96,14 +108,19 @@ impl MyApp {
                 Message::LoadDiff(path) => {
                     let s = self.sender.clone();
                     thread::spawn(move || match AppData::from_pathbuf(path) {
-                        Ok(app_data) => s.send(Message::UpdateAppData(app_data)),
-                        Err(_) => s.send(Message::ShowError("Error loading diff!".to_string())),
+                        Ok(app_data) => s
+                            .send(Message::UpdateAppData(app_data))
+                            .expect("Channel closed unexpectedly!"),
+                        Err(_) => s
+                            .send(Message::ShowError("Error loading diff!".to_string()))
+                            .expect("Channel closed unexpectedly!"),
                     });
                 }
                 Message::UpdateAppData(app_data) => {
                     self.update_app_data(&app_data);
                     self.app_data = Some(app_data);
                 }
+                Message::UpdateWatcher(watcher) => self.watcher = Some(watcher),
                 Message::ChangeDiffType(diff_type) => self.control_data.diff_type = diff_type,
                 Message::ChangeSelectedDiffIndex(i) => self.control_data.selected_diff_index = i,
                 Message::ShowError(error) => {
@@ -119,6 +136,19 @@ impl MyApp {
                 TryRecvError::Disconnected => panic!("Channel closed unexpectedly!"),
                 TryRecvError::Empty => (),
             },
+        }
+
+        let mut should_refresh = self.control_data.should_refresh.lock().unwrap();
+
+        if *should_refresh {
+            if let Some(app_data) = &self.app_data {
+                self.sender
+                    .send(Message::LoadDiff(PathBuf::from(
+                        app_data.project_path.clone(),
+                    )))
+                    .expect("Channel closed unexpectedly!");
+            }
+            *should_refresh = false;
         }
     }
 }

@@ -33,7 +33,7 @@ pub fn show(
             puffin_egui::profiler_window(ctx);
         }
 
-        selection_area::ui(ui, app_data, sender);
+        selection_area::ui(ui, sender);
 
         if let Some(app_data) = app_data {
             let diff_data = match control_data.diff_type {
