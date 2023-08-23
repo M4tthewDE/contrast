@@ -24,9 +24,9 @@ pub fn ui(ui: &mut Ui, diff: &Diff) {
             .show_rows(ui, 10.0, total_rows, |ui, row_range| {
                 let Range { start, end } = row_range;
                 ui.horizontal(|ui| {
-                    line_numbers::ui(ui, &diff, start, end);
-                    origins::ui(ui, &diff, start, end);
-                    code::ui(ui, &diff, start, end);
+                    line_numbers::ui(ui, diff, start, end);
+                    origins::ui(ui, diff, start, end);
+                    code::ui(ui, diff, start, end);
                 });
             });
     });
