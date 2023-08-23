@@ -1,10 +1,10 @@
-use std::{path::PathBuf, sync::mpsc::Sender};
+use std::sync::mpsc::Sender;
 
 use egui::{Color32, RichText, Ui};
 
-use crate::{data::Message, AppData};
+use crate::data::Message;
 
-pub fn ui(ui: &mut Ui, app_data: &Option<AppData>, sender: &Sender<Message>) {
+pub fn ui(ui: &mut Ui, sender: &Sender<Message>) {
     puffin::profile_function!("selection_area::ui");
     ui.horizontal(|ui| {
         ui.heading(RichText::new("Diff Viewer").color(Color32::WHITE));
@@ -17,19 +17,6 @@ pub fn ui(ui: &mut Ui, app_data: &Option<AppData>, sender: &Sender<Message>) {
             if let Some(path) = rfd::FileDialog::new().pick_folder() {
                 sender
                     .send(Message::LoadDiff(path))
-                    .expect("Channel closed unexpectedly!");
-            }
-        }
-
-        if ui
-            .button(RichText::new("Refresh").color(Color32::WHITE))
-            .clicked()
-        {
-            if let Some(app_data) = app_data {
-                sender
-                    .send(Message::LoadDiff(PathBuf::from(
-                        app_data.project_path.clone(),
-                    )))
                     .expect("Channel closed unexpectedly!");
             }
         }
