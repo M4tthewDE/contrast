@@ -273,26 +273,31 @@ fn parse_diffs(diffs: git2::Diff) -> Result<(Vec<Diff>, Stats), DiffParsingError
                 true
             },
             None,
-            Some(&mut |_delta, _hunk| {
-                let mut content = std::str::from_utf8(_hunk.header()).unwrap().to_string();
-                if content.ends_with('\n') {
-                    content.pop();
-                    if content.ends_with('\r') {
-                        content.pop();
-                    }
-                }
-
-                match Header::new(content) {
-                    Ok(header) => match header_groups.borrow_mut().last_mut() {
-                        Some(last) => {
-                            last.push(header);
-                            true
+            Some(
+                &mut |_delta, _hunk| match std::str::from_utf8(_hunk.header()) {
+                    Ok(c) => {
+                        let mut content = c.to_string();
+                        if content.ends_with('\n') {
+                            content.pop();
+                            if content.ends_with('\r') {
+                                content.pop();
+                            }
                         }
-                        None => false,
-                    },
+
+                        match Header::new(content) {
+                            Ok(header) => match header_groups.borrow_mut().last_mut() {
+                                Some(last) => {
+                                    last.push(header);
+                                    true
+                                }
+                                None => false,
+                            },
+                            Err(_) => false,
+                        }
+                    }
                     Err(_) => false,
-                }
-            }),
+                },
+            ),
             None,
         )
         .map_err(|_| DiffParsingError)?;
