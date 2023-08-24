@@ -10,6 +10,7 @@ Use `cargo install contrast-diff-viewer` to install the latest version.
 
 Use the *Open* button to select the folder in which your git repository is.
 
+Supply a path directly: `contrast-diff-viewer <path>`
 
 # Profiling
 
