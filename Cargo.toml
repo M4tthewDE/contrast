@@ -1,8 +1,8 @@
 [package]
 name = "contrast-diff-viewer"
-version = "0.8.1"
+version = "0.9.0"
 edition = "2021"
-authors = ["m4tthewde <mattider2@gmail.com>"]
+authors = ["m4tthewde <matthias.kronberg@gmail.com>"]
 license = "GPL-3.0"
 description = "A simple diff viewer for Git."
 readme = "README.md"
