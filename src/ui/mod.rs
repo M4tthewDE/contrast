@@ -56,12 +56,12 @@ pub fn show(
             ui.separator();
 
             ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
-                files_area::ui(ui, diff_data, control_data.selected_diff_index, sender);
+                files_area::ui(ui, diff_data, &control_data.selected_diff, sender);
 
                 ui.separator();
 
-                if let Some(diff) = diff_data.diffs.get(control_data.selected_diff_index) {
-                    diff_area::ui(ui, diff);
+                if let Some(diff) = diff_data.get_diff(&control_data.selected_diff) {
+                    diff_area::ui(ui, &diff);
                 }
             });
         }
