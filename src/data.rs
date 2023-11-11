@@ -26,15 +26,10 @@ pub struct AppData {
 pub struct DiffData {
     pub diffs: Vec<Diff>,
     pub stats: Stats,
+    pub file_tree: Tree,
 }
 
 impl DiffData {
-    pub fn file_tree(&self) -> Tree {
-        let paths = self.diffs.iter().map(|d| d.file_name()).collect();
-
-        Tree::new(paths)
-    }
-
     pub fn get_diff(&self, name: &PathBuf) -> Option<Diff> {
         for diff in &self.diffs {
             if diff.file_name() == *name {
@@ -79,13 +74,15 @@ impl AppData {
             git::get_staged_diffs(&project_path).map_err(|_| AppDataCreationError::Parsing)?;
 
         let modified_diff_data = DiffData {
-            diffs: modified_diffs,
+            diffs: modified_diffs.clone(),
             stats: modified_stats,
+            file_tree: Tree::new(modified_diffs.iter().map(|d| d.file_name()).collect()),
         };
 
         let staged_diff_data = DiffData {
-            diffs: staged_diffs,
+            diffs: staged_diffs.clone(),
             stats: staged_stats,
+            file_tree: Tree::new(staged_diffs.iter().map(|d| d.file_name()).collect()),
         };
 
         Ok(AppData {
@@ -95,7 +92,6 @@ impl AppData {
         })
     }
 }
-
 pub enum Message {
     LoadDiff(PathBuf),
     UpdateAppData(AppData),
@@ -103,6 +99,7 @@ pub enum Message {
     ShowError(String),
     ChangeDiffType(DiffType),
     ChangeSelectedDiff(PathBuf),
+    ToggleFolder(u64),
     CloseError,
 }
 
@@ -111,6 +108,8 @@ pub struct Tree {
     pub nodes: Vec<Tree>,
     pub files: Vec<File>,
     pub name: String,
+    pub open: bool,
+    pub id: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -130,16 +129,18 @@ impl Tree {
             nodes: vec![],
             files: vec![],
             name: "".to_owned(),
+            open: true,
+            id: 0,
         };
 
         for path in paths {
-            tree.add(path, 0);
+            tree.add(path, 0, 1);
         }
 
         tree
     }
 
-    fn add(&mut self, path: PathBuf, depth: usize) {
+    fn add(&mut self, path: PathBuf, depth: usize, id: u64) {
         // top level
         if path.components().count() == 1 {
             self.files.push(File { path });
@@ -164,7 +165,7 @@ impl Tree {
         // do we already have a tree for this?
         for node in &mut self.nodes {
             if node.name == name {
-                node.add(path.clone(), depth + 1);
+                node.add(path.clone(), depth + 1, id + 1);
                 return;
             }
         }
@@ -174,9 +175,22 @@ impl Tree {
             nodes: vec![],
             files: vec![],
             name,
+            open: true,
+            id,
         };
-        tree.add(path, depth + 1);
+        tree.add(path, depth + 1, id + 1);
         self.nodes.push(tree);
+    }
+
+    pub fn toggle_open(&mut self, id: u64) {
+        if self.id == id {
+            self.open = !self.open;
+            return;
+        }
+
+        for node in &mut self.nodes {
+            node.toggle_open(id);
+        }
     }
 }
 

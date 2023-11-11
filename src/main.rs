@@ -127,6 +127,18 @@ impl MyApp {
                     self.control_data.error_information = error;
                     self.control_data.show_err_dialog = true;
                 }
+                Message::ToggleFolder(id) => {
+                    if let Some(app_data) = &mut self.app_data {
+                        match self.control_data.diff_type {
+                            DiffType::Modified => {
+                                app_data.modified_diff_data.file_tree.toggle_open(id)
+                            }
+                            DiffType::Staged => {
+                                app_data.modified_diff_data.file_tree.toggle_open(id)
+                            }
+                        }
+                    }
+                }
                 Message::CloseError => {
                     self.control_data.error_information = "".to_string();
                     self.control_data.show_err_dialog = false;
