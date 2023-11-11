@@ -44,11 +44,8 @@ fn show_tree(
                 ui.add_space(10.0);
             }
 
-            let button = if file.path == *selected_diff {
-                Button::new(format!("🖹 {}", file.clone().get_name().unwrap())).selected(true)
-            } else {
-                Button::new(format!("🖹 {}", file.clone().get_name().unwrap()))
-            };
+            let button =
+                Button::new(format!("🖹 {}", file.clone().get_name().unwrap())).frame(false);
 
             if ui.add(button).clicked() {
                 sender

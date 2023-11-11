@@ -61,7 +61,10 @@ pub fn show(
                 ui.separator();
 
                 if let Some(diff) = diff_data.get_diff(&control_data.selected_diff) {
-                    diff_area::ui(ui, &diff);
+                    ui.vertical(|ui| {
+                        ui.label(control_data.selected_diff.to_str().unwrap());
+                        diff_area::ui(ui, &diff);
+                    });
                 }
             });
         }
