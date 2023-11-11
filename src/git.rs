@@ -81,11 +81,8 @@ impl Diff {
         }
     }
 
-    pub fn file_name(&self) -> String {
-        self.old_file
-            .to_str()
-            .unwrap_or("Error fetching file name")
-            .to_owned()
+    pub fn file_name(&self) -> PathBuf {
+        self.old_file.to_owned()
     }
 }
 
