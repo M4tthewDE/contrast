@@ -14,16 +14,6 @@ pub fn ui(ui: &mut Ui, diff_data: &DiffData, selected_diff: &PathBuf, sender: &S
             .id_source("file scroll area")
             .show(ui, |ui| {
                 show_tree(ui, file_tree, 0, selected_diff, sender);
-                //for (i, diff) in diff_data.diffs.iter().enumerate() {
-                //    if ui
-                //        .selectable_value(&mut index, i, diff.file_name().to_str().unwrap())
-                //        .clicked()
-                //    {
-                //        sender
-                //            .send(Message::ChangeSelectedDiffIndex(i))
-                //            .expect("Channel closed unexpectedly!");
-                //    }
-                //}
             });
     });
 }
@@ -40,7 +30,7 @@ fn show_tree(
             for _ in 0..depth - 1 {
                 ui.add_space(10.0);
             }
-            ui.label(format!("{}/", tree.name));
+            ui.label(format!("🗀 {}", tree.name));
         });
     }
 
@@ -54,7 +44,10 @@ fn show_tree(
                 ui.add_space(10.0);
             }
 
-            if ui.button(file.clone().get_name().unwrap()).clicked() {
+            if ui
+                .button(format!("🖹 {}", file.clone().get_name().unwrap()))
+                .clicked()
+            {
                 sender
                     .send(Message::ChangeSelectedDiff(file.path))
                     .expect("Channel closed unexpectedly!");
