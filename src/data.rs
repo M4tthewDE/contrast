@@ -12,7 +12,7 @@ pub struct ControlData {
     pub show_err_dialog: bool,
     pub error_information: String,
     pub diff_type: DiffType,
-    pub selected_diff_index: usize,
+    pub selected_diff: PathBuf,
     pub should_refresh: Arc<Mutex<bool>>,
 }
 
@@ -33,6 +33,16 @@ impl DiffData {
         let paths = self.diffs.iter().map(|d| d.file_name()).collect();
 
         Tree::new(paths)
+    }
+
+    pub fn get_diff(&self, name: &PathBuf) -> Option<Diff> {
+        for diff in &self.diffs {
+            if diff.file_name() == *name {
+                return Some(diff.clone());
+            }
+        }
+
+        None
     }
 }
 
@@ -92,15 +102,26 @@ pub enum Message {
     UpdateWatcher(RecommendedWatcher),
     ShowError(String),
     ChangeDiffType(DiffType),
-    ChangeSelectedDiffIndex(usize),
+    ChangeSelectedDiff(PathBuf),
     CloseError,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Tree {
     pub nodes: Vec<Tree>,
-    pub files: Vec<String>,
+    pub files: Vec<File>,
     pub name: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct File {
+    pub path: PathBuf,
+}
+
+impl File {
+    pub fn get_name(&self) -> Option<String> {
+        Some(self.path.file_name()?.to_str()?.to_string())
+    }
 }
 
 impl Tree {
@@ -119,18 +140,15 @@ impl Tree {
     }
 
     fn add(&mut self, path: PathBuf, depth: usize) {
-        // base cases
-
         // top level
         if path.components().count() == 1 {
-            self.files.push(path.to_str().unwrap().to_owned());
+            self.files.push(File { path });
             return;
         }
 
         // deepest level
-        if path.components().count() == depth {
-            self.files
-                .push(path.file_name().unwrap().to_str().unwrap().to_owned());
+        if path.components().count() == depth + 1 {
+            self.files.push(File { path });
             return;
         }
 
