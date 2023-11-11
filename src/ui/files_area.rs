@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::mpsc::Sender};
 
-use egui::{ScrollArea, Ui};
+use egui::{Button, ScrollArea, Ui};
 
 use crate::data::{DiffData, Message, Tree};
 
@@ -22,7 +22,7 @@ fn show_tree(
     ui: &mut Ui,
     tree: Tree,
     depth: usize,
-    _selected_diff: &PathBuf,
+    selected_diff: &PathBuf,
     sender: &Sender<Message>,
 ) {
     if !tree.name.is_empty() {
@@ -35,7 +35,7 @@ fn show_tree(
     }
 
     for node in tree.nodes {
-        show_tree(ui, node, depth + 1, _selected_diff, sender);
+        show_tree(ui, node, depth + 1, selected_diff, sender);
     }
 
     for file in tree.files {
@@ -44,10 +44,13 @@ fn show_tree(
                 ui.add_space(10.0);
             }
 
-            if ui
-                .button(format!("🖹 {}", file.clone().get_name().unwrap()))
-                .clicked()
-            {
+            let button = if file.path == *selected_diff {
+                Button::new(format!("🖹 {}", file.clone().get_name().unwrap())).selected(true)
+            } else {
+                Button::new(format!("🖹 {}", file.clone().get_name().unwrap()))
+            };
+
+            if ui.add(button).clicked() {
                 sender
                     .send(Message::ChangeSelectedDiff(file.path))
                     .expect("Channel closed unexpectedly!");
