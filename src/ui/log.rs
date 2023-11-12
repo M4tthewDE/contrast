@@ -4,14 +4,26 @@ use egui::{Color32, Context, Label, RichText, ScrollArea, Sense, Ui, Window};
 
 use crate::{data::Message, git::Commit};
 
-pub fn ui(ctx: &Context, sender: &Sender<Message>, commits: &Vec<Commit>) {
+pub fn ui(
+    ctx: &Context,
+    sender: &Sender<Message>,
+    commits: &Vec<Commit>,
+    search_string: &mut String,
+) {
     let mut open = true;
     Window::new("History").open(&mut open).show(ctx, |ui| {
+        ui.horizontal(|ui| {
+            ui.label("Search:");
+            ui.text_edit_singleline(search_string);
+        });
+
         ScrollArea::vertical()
             .id_source("history scroll area")
             .show(ui, |ui| {
                 for commit in commits {
-                    show_commit(ui, commit);
+                    if commit.contains(search_string) {
+                        show_commit(ui, commit);
+                    }
                 }
             });
     });

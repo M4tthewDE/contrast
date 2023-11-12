@@ -182,7 +182,7 @@ impl eframe::App for MyApp {
         puffin::profile_function!();
         puffin::GlobalProfiler::lock().new_frame();
 
-        ui::show(ctx, &self.app_data, &self.control_data, &self.sender);
+        ui::show(ctx, &self.app_data, &mut self.control_data, &self.sender);
 
         self.handle_messages();
     }

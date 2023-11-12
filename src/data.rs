@@ -15,6 +15,7 @@ pub struct ControlData {
     pub selected_diff: PathBuf,
     pub should_refresh: Arc<Mutex<bool>>,
     pub history_open: bool,
+    pub search_string: String,
 }
 
 #[derive(Clone)]

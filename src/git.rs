@@ -353,6 +353,14 @@ pub struct Commit {
     pub time: NaiveDateTime,
 }
 
+impl Commit {
+    pub fn contains(&self, search_string: &str) -> bool {
+        self.author.name.contains(search_string)
+            || self.author.email.contains(search_string)
+            || self.message.contains(search_string)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Author {
     pub name: String,

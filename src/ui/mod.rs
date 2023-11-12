@@ -20,7 +20,7 @@ mod stats;
 pub fn show(
     ctx: &Context,
     app_data: &Option<AppData>,
-    control_data: &ControlData,
+    control_data: &mut ControlData,
     sender: &Sender<Message>,
 ) {
     egui::CentralPanel::default().show(ctx, |ui| {
@@ -77,7 +77,12 @@ pub fn show(
             });
 
             if control_data.history_open {
-                log::ui(ctx, sender, &app_data.commits);
+                log::ui(
+                    ctx,
+                    sender,
+                    &app_data.commits,
+                    &mut control_data.search_string,
+                );
             }
         }
     });
