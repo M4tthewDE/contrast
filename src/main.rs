@@ -57,9 +57,7 @@ impl MyApp {
         let (sender, receiver) = mpsc::channel();
 
         if let Some(path) = path {
-            sender
-                .send(Message::LoadRepository(path))
-                .expect("Channel closed unexpectedly!");
+            load_repository(path, &sender);
         }
 
         MyApp {
@@ -98,20 +96,10 @@ impl MyApp {
         }
     }
 
+    // only for messages that come from different threads
     fn handle_messages(&mut self) {
         match self.receiver.try_recv() {
             Ok(msg) => match msg {
-                Message::LoadRepository(path) => {
-                    let s = self.sender.clone();
-                    thread::spawn(move || match AppData::from_pathbuf(path) {
-                        Ok(app_data) => s
-                            .send(Message::UpdateAppData(app_data))
-                            .expect("Channel closed unexpectedly!"),
-                        Err(_) => s
-                            .send(Message::ShowError("Error loading diff!".to_string()))
-                            .expect("Channel closed unexpectedly!"),
-                    });
-                }
                 Message::UpdateAppData(app_data) => {
                     self.update_app_data(&app_data);
                     self.app_data = Some(app_data);
@@ -141,11 +129,7 @@ impl MyApp {
 
         if *should_refresh {
             if let Some(app_data) = &self.app_data {
-                self.sender
-                    .send(Message::LoadRepository(PathBuf::from(
-                        app_data.project_path.clone(),
-                    )))
-                    .expect("Channel closed unexpectedly!");
+                load_repository(PathBuf::from(app_data.project_path.clone()), &self.sender);
             }
             *should_refresh = false;
         }
@@ -171,4 +155,16 @@ impl eframe::App for MyApp {
 
         self.handle_messages();
     }
+}
+
+fn load_repository(path: PathBuf, sender: &Sender<Message>) {
+    let s = sender.clone();
+    thread::spawn(move || match AppData::from_pathbuf(path) {
+        Ok(app_data) => s
+            .send(Message::UpdateAppData(app_data))
+            .expect("Channel closed unexpectedly!"),
+        Err(_) => s
+            .send(Message::ShowError("Error loading diff!".to_string()))
+            .expect("Channel closed unexpectedly!"),
+    });
 }

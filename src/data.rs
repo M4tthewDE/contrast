@@ -100,7 +100,6 @@ impl AppData {
     }
 }
 pub enum Message {
-    LoadRepository(PathBuf),
     UpdateAppData(AppData),
     UpdateWatcher(RecommendedWatcher),
     ShowError(String),
