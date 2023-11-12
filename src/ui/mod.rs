@@ -45,9 +45,7 @@ pub fn main(
     ui.horizontal(|ui| {
         ui.heading(RichText::new(&app_data.project_path).color(Color32::WHITE));
         if ui.button("Log").clicked() {
-            sender
-                .send(Message::ToggleHistory)
-                .expect("Channel closed unexpectedly!");
+            control_data.history_open = !control_data.history_open;
         }
     });
     ui.separator();
@@ -76,12 +74,7 @@ pub fn main(
     });
 
     if control_data.history_open {
-        log::ui(
-            ctx,
-            sender,
-            &app_data.commits,
-            &mut control_data.search_string,
-        );
+        log::ui(ctx, &app_data.commits, control_data);
     }
 }
 

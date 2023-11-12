@@ -106,7 +106,6 @@ pub enum Message {
     ShowError(String),
     ChangeDiffType(DiffType),
     ToggleFolder(u64),
-    ToggleHistory,
     CloseError,
 }
 

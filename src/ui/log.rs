@@ -1,27 +1,20 @@
-use std::sync::mpsc::Sender;
-
 use egui::{Color32, Context, Label, RichText, ScrollArea, Sense, Ui, Window};
 
-use crate::{data::Message, git::Commit};
+use crate::{data::ControlData, git::Commit};
 
-pub fn ui(
-    ctx: &Context,
-    sender: &Sender<Message>,
-    commits: &Vec<Commit>,
-    search_string: &mut String,
-) {
+pub fn ui(ctx: &Context, commits: &Vec<Commit>, control_data: &mut ControlData) {
     let mut open = true;
     Window::new("History").open(&mut open).show(ctx, |ui| {
         ui.horizontal(|ui| {
             ui.label("Search:");
-            ui.text_edit_singleline(search_string);
+            ui.text_edit_singleline(&mut control_data.search_string);
         });
 
         ScrollArea::vertical()
             .id_source("history scroll area")
             .show(ui, |ui| {
                 for commit in commits {
-                    if commit.contains(search_string) {
+                    if commit.contains(&control_data.search_string) {
                         show_commit(ui, commit);
                     }
                 }
@@ -29,9 +22,7 @@ pub fn ui(
     });
 
     if !open {
-        sender
-            .send(Message::ToggleHistory)
-            .expect("Channel closed unexpectedly!");
+        control_data.history_open = !control_data.history_open;
     }
 }
 
