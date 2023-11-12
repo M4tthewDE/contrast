@@ -44,7 +44,7 @@ pub fn main(ui: &mut Ui, ctx: &Context, app_data: &mut AppData, control_data: &m
     ui.horizontal(|ui| {
         ui.heading(RichText::new(&app_data.project_path).color(Color32::WHITE));
         if ui.button("Log").clicked() {
-            control_data.history_open = !control_data.history_open;
+            control_data.history_open = true;
         }
     });
     ui.separator();
@@ -52,6 +52,10 @@ pub fn main(ui: &mut Ui, ctx: &Context, app_data: &mut AppData, control_data: &m
     diff_type::ui(ui, control_data);
 
     stats::ui(ui, &diff_data.stats);
+
+    if control_data.history_open {
+        log::ui(ctx, &app_data.commits, control_data);
+    }
 
     if diff_data.diffs.is_empty() {
         return;
@@ -71,10 +75,6 @@ pub fn main(ui: &mut Ui, ctx: &Context, app_data: &mut AppData, control_data: &m
             });
         }
     });
-
-    if control_data.history_open {
-        log::ui(ctx, &app_data.commits, control_data);
-    }
 }
 
 pub fn error_dialog(ctx: &Context, control_data: &mut ControlData) {

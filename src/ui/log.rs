@@ -22,7 +22,7 @@ pub fn ui(ctx: &Context, commits: &Vec<Commit>, control_data: &mut ControlData) 
     });
 
     if !open {
-        control_data.history_open = !control_data.history_open;
+        control_data.history_open = false;
     }
 }
 
