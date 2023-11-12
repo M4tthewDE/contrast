@@ -355,9 +355,10 @@ pub struct Commit {
 
 impl Commit {
     pub fn contains(&self, search_string: &str) -> bool {
-        self.author.name.contains(search_string)
-            || self.author.email.contains(search_string)
-            || self.message.contains(search_string)
+        let search_string = &search_string.to_lowercase();
+        self.author.name.to_lowercase().contains(search_string)
+            || self.author.email.to_lowercase().contains(search_string)
+            || self.message.to_lowercase().contains(search_string)
     }
 }
 
