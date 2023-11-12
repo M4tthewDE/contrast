@@ -1,6 +1,6 @@
 use std::sync::mpsc::Sender;
 
-use egui::{Color32, Context, RichText, ScrollArea, Ui, Window};
+use egui::{Color32, Context, Label, RichText, ScrollArea, Sense, Ui, Window};
 
 use crate::{data::Message, git::Commit};
 
@@ -24,7 +24,19 @@ pub fn ui(ctx: &Context, sender: &Sender<Message>, commits: &Vec<Commit>) {
 }
 
 fn show_commit(ui: &mut Ui, commit: &Commit) {
-    ui.label(RichText::new(format!("commit {}", commit.id)).color(Color32::LIGHT_BLUE));
+    if ui
+        .add(
+            Label::new(RichText::new(format!("commit {}", commit.id)).color(Color32::LIGHT_BLUE))
+                .sense(Sense::click()),
+        )
+        .on_hover_text_at_pointer("Click to copy id")
+        .clicked()
+    {
+        ui.output_mut(|po| {
+            po.copied_text = commit.clone().id;
+        });
+    }
+
     ui.label(
         RichText::new(format!(
             "Author: {} <{}>",
