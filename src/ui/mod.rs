@@ -64,7 +64,7 @@ pub fn show(
             ui.separator();
 
             ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
-                files_area::ui(ui, diff_data, &control_data.selected_diff, sender);
+                files_area::ui(ui, diff_data, control_data, sender);
 
                 ui.separator();
 

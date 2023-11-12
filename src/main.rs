@@ -122,7 +122,6 @@ impl MyApp {
                 }
                 Message::UpdateWatcher(watcher) => self.watcher = Some(watcher),
                 Message::ChangeDiffType(diff_type) => self.control_data.diff_type = diff_type,
-                Message::ChangeSelectedDiff(name) => self.control_data.selected_diff = name,
                 Message::ShowError(error) => {
                     self.control_data.error_information = error;
                     self.control_data.show_err_dialog = true;

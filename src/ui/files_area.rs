@@ -1,17 +1,22 @@
-use std::{path::PathBuf, sync::mpsc::Sender};
+use std::sync::mpsc::Sender;
 
 use egui::{Button, Color32, RichText, ScrollArea, Ui};
 
-use crate::data::{DiffData, Message, Tree};
+use crate::data::{ControlData, DiffData, Message, Tree};
 
-pub fn ui(ui: &mut Ui, diff_data: &DiffData, selected_diff: &PathBuf, sender: &Sender<Message>) {
+pub fn ui(
+    ui: &mut Ui,
+    diff_data: &DiffData,
+    control_data: &mut ControlData,
+    sender: &Sender<Message>,
+) {
     puffin::profile_function!("files_area::ui");
 
     ui.vertical(|ui| {
         ScrollArea::vertical()
             .id_source("file scroll area")
             .show(ui, |ui| {
-                show_tree(ui, &diff_data.file_tree, 0, selected_diff, sender);
+                show_tree(ui, &diff_data.file_tree, 0, control_data, sender);
             });
     });
 }
@@ -20,7 +25,7 @@ fn show_tree(
     ui: &mut Ui,
     tree: &Tree,
     depth: usize,
-    selected_diff: &PathBuf,
+    control_data: &mut ControlData,
     sender: &Sender<Message>,
 ) {
     if !tree.name.is_empty() {
@@ -47,7 +52,7 @@ fn show_tree(
     }
 
     for node in &tree.nodes {
-        show_tree(ui, node, depth + 1, selected_diff, sender);
+        show_tree(ui, node, depth + 1, control_data, sender);
     }
 
     for file in &tree.files {
@@ -56,7 +61,7 @@ fn show_tree(
                 ui.add_space(10.0);
             }
 
-            let button = if file.path == *selected_diff {
+            let button = if file.path == *control_data.selected_diff {
                 Button::new(
                     RichText::new(format!("🖹 {}", file.clone().get_name().unwrap()))
                         .color(Color32::WHITE),
@@ -67,9 +72,7 @@ fn show_tree(
             };
 
             if ui.add(button).clicked() {
-                sender
-                    .send(Message::ChangeSelectedDiff(file.path.to_owned()))
-                    .expect("Channel closed unexpectedly!");
+                control_data.selected_diff = file.path.clone();
             }
         });
     }

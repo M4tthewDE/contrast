@@ -105,7 +105,6 @@ pub enum Message {
     UpdateWatcher(RecommendedWatcher),
     ShowError(String),
     ChangeDiffType(DiffType),
-    ChangeSelectedDiff(PathBuf),
     ToggleFolder(u64),
     ToggleHistory,
     CloseError,
