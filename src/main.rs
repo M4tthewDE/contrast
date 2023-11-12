@@ -133,10 +133,6 @@ impl MyApp {
                         }
                     }
                 }
-                Message::CloseError => {
-                    self.control_data.error_information = "".to_string();
-                    self.control_data.show_err_dialog = false;
-                }
             },
             Err(err) => match err {
                 TryRecvError::Disconnected => panic!("Channel closed unexpectedly!"),
@@ -174,7 +170,7 @@ impl eframe::App for MyApp {
         puffin::GlobalProfiler::lock().new_frame();
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui::selection(ui, ctx, &self.control_data, &self.sender);
+            ui::selection(ui, ctx, &mut self.control_data, &self.sender);
             if let Some(app_data) = &self.app_data {
                 ui::main(ui, ctx, app_data, &mut self.control_data, &self.sender);
             }

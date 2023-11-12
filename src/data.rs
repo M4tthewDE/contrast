@@ -105,7 +105,6 @@ pub enum Message {
     UpdateWatcher(RecommendedWatcher),
     ShowError(String),
     ToggleFolder(u64),
-    CloseError,
 }
 
 #[derive(Debug, Clone)]

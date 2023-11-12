@@ -17,11 +17,16 @@ mod origins;
 mod selection_area;
 mod stats;
 
-pub fn selection(ui: &mut Ui, ctx: &Context, control_data: &ControlData, sender: &Sender<Message>) {
+pub fn selection(
+    ui: &mut Ui,
+    ctx: &Context,
+    control_data: &mut ControlData,
+    sender: &Sender<Message>,
+) {
     puffin::profile_function!();
 
     if control_data.show_err_dialog {
-        error_dialog(ctx, control_data, sender);
+        error_dialog(ctx, control_data);
     }
 
     selection_area::ui(ui, sender);
@@ -78,16 +83,15 @@ pub fn main(
     }
 }
 
-pub fn error_dialog(ctx: &Context, control_data: &ControlData, sender: &Sender<Message>) {
+pub fn error_dialog(ctx: &Context, control_data: &mut ControlData) {
     Window::new("Error")
         .collapsible(false)
         .resizable(true)
         .show(ctx, |ui| {
             ui.label(RichText::new(&control_data.error_information).strong());
             if ui.button("Close").clicked() {
-                sender
-                    .send(Message::CloseError)
-                    .expect("Channel closed unexpectedly!");
+                control_data.error_information = "".to_string();
+                control_data.show_err_dialog = false;
             }
         });
 }
