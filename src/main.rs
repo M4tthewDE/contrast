@@ -17,7 +17,8 @@ mod ui;
 mod watcher;
 
 fn main() -> Result<(), eframe::Error> {
-    if env::var("PROFILING").is_ok() {
+    let profiler = env::var("PROFILING").is_ok();
+    if profiler {
         puffin::set_scopes_on(true);
     }
     env_logger::init();
@@ -31,7 +32,7 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "Contrast",
         options,
-        Box::new(|_cc| Box::new(MyApp::new(path))),
+        Box::new(move |_cc| Box::new(MyApp::new(path, profiler))),
     )
 }
 
@@ -56,7 +57,7 @@ struct MyApp {
 }
 
 impl MyApp {
-    fn new(path: Option<PathBuf>) -> MyApp {
+    fn new(path: Option<PathBuf>, profiler: bool) -> MyApp {
         let (sender, receiver) = mpsc::channel();
 
         if let Some(path) = path {
@@ -65,7 +66,10 @@ impl MyApp {
 
         MyApp {
             app_data: None,
-            control_data: ControlData::default(),
+            control_data: ControlData {
+                profiler,
+                ..Default::default()
+            },
             sender,
             receiver,
             watcher: None,
@@ -151,8 +155,8 @@ impl eframe::App for MyApp {
             }
         });
 
-        if env::var("PROFILING").is_ok() {
-            puffin_egui::profiler_window(ctx);
+        if self.control_data.profiler {
+            self.control_data.profiler = puffin_egui::profiler_window(ctx);
         }
 
         self.handle_messages();

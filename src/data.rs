@@ -16,6 +16,7 @@ pub struct ControlData {
     pub should_refresh: Arc<Mutex<bool>>,
     pub history_open: bool,
     pub search_string: String,
+    pub profiler: bool,
 }
 
 #[derive(Clone)]
