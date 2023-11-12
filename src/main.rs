@@ -17,6 +17,9 @@ mod ui;
 mod watcher;
 
 fn main() -> Result<(), eframe::Error> {
+    if env::var("PROFILING").is_ok() {
+        puffin::set_scopes_on(true);
+    }
     env_logger::init();
 
     let options = eframe::NativeOptions {
@@ -149,7 +152,6 @@ impl eframe::App for MyApp {
         });
 
         if env::var("PROFILING").is_ok() {
-            puffin::set_scopes_on(true);
             puffin_egui::profiler_window(ctx);
         }
 

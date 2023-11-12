@@ -690,7 +690,7 @@ dependencies = [
  "git2",
  "ignore",
  "notify",
- "puffin 0.16.0",
+ "puffin",
  "puffin_egui",
  "rfd",
 ]
@@ -2294,19 +2294,6 @@ dependencies = [
 
 [[package]]
 name = "puffin"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76425abd4e1a0ad4bd6995dd974b52f414fca9974171df8e3708b3e660d05a21"
-dependencies = [
- "anyhow",
- "byteorder",
- "cfg-if",
- "instant",
- "once_cell",
-]
-
-[[package]]
-name = "puffin"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39009d69b9d547c3ffa974a20648fa02f447c05bd0a664012b1ba5a5b06fb14e"
@@ -2331,7 +2318,7 @@ dependencies = [
  "indexmap 1.9.3",
  "natord",
  "once_cell",
- "puffin 0.17.0",
+ "puffin",
  "time",
  "vec1",
  "web-time",

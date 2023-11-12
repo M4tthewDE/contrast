@@ -19,7 +19,7 @@ env_logger = "0.10.0"
 git2 = "0.17.2"
 ignore = "0.4.20"
 notify = "6.1.1"
-puffin = "0.16.0"
+puffin = "0.17.0"
 puffin_egui = "0.23.0"
 rfd = "0.11.4"
 
