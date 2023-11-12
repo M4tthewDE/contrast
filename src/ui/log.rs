@@ -1,8 +1,10 @@
+use std::ops::Range;
+
 use egui::{Color32, Context, Label, RichText, ScrollArea, Sense, Ui, Window};
 
 use crate::{data::ControlData, git::Commit};
 
-pub fn ui(ctx: &Context, commits: &Vec<Commit>, control_data: &mut ControlData) {
+pub fn ui(ctx: &Context, commits: &[Commit], control_data: &mut ControlData) {
     puffin::profile_function!();
 
     let mut open = true;
@@ -12,13 +14,17 @@ pub fn ui(ctx: &Context, commits: &Vec<Commit>, control_data: &mut ControlData) 
             ui.text_edit_singleline(&mut control_data.search_string);
         });
 
+        let commits: Vec<&Commit> = commits
+            .iter()
+            .filter(|c| c.contains(&control_data.search_string))
+            .collect();
+
         ScrollArea::vertical()
             .id_source("history scroll area")
-            .show(ui, |ui| {
-                for commit in commits {
-                    if commit.contains(&control_data.search_string) {
-                        show_commit(ui, commit);
-                    }
+            .show_rows(ui, 100.0, commits.len(), |ui, row_range| {
+                let Range { start, end } = row_range;
+                for commit in &commits[start..end] {
+                    show_commit(ui, commit)
                 }
             });
     });
