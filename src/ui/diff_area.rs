@@ -8,7 +8,7 @@ use crate::{
 };
 
 pub fn ui(ui: &mut Ui, diff: &Diff) {
-    puffin::profile_function!("diff_area::ui");
+    puffin::profile_function!();
 
     if diff.lines.is_empty() {
         ui.label(RichText::new("No content").color(Color32::GRAY));

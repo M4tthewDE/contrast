@@ -3,7 +3,7 @@ use egui::{Color32, RichText, Ui};
 use crate::git::Stats;
 
 pub fn ui(ui: &mut Ui, stats: &Stats) {
-    puffin::profile_function!("stats::ui");
+    puffin::profile_function!();
 
     let file_changed_count = stats.files_changed;
     let insertion_count = stats.insertions;

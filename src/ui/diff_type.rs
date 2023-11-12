@@ -3,7 +3,7 @@ use egui::Ui;
 use crate::data::{ControlData, DiffType};
 
 pub fn ui(ui: &mut Ui, control_data: &mut ControlData) {
-    puffin::profile_function!("diff_type::ui");
+    puffin::profile_function!();
 
     let mut selected_diff_type = control_data.diff_type.clone();
     ui.horizontal(|ui| {

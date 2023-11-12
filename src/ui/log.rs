@@ -3,6 +3,8 @@ use egui::{Color32, Context, Label, RichText, ScrollArea, Sense, Ui, Window};
 use crate::{data::ControlData, git::Commit};
 
 pub fn ui(ctx: &Context, commits: &Vec<Commit>, control_data: &mut ControlData) {
+    puffin::profile_function!();
+
     let mut open = true;
     Window::new("History").open(&mut open).show(ctx, |ui| {
         ui.horizontal(|ui| {
@@ -27,6 +29,8 @@ pub fn ui(ctx: &Context, commits: &Vec<Commit>, control_data: &mut ControlData) 
 }
 
 fn show_commit(ui: &mut Ui, commit: &Commit) {
+    puffin::profile_function!();
+
     if ui
         .add(
             Label::new(RichText::new(format!("commit {}", commit.id)).color(Color32::LIGHT_BLUE))

@@ -8,7 +8,7 @@ pub fn ui(
     control_data: &mut ControlData,
     app_data: &mut AppData,
 ) {
-    puffin::profile_function!("files_area::ui");
+    puffin::profile_function!();
 
     ui.vertical(|ui| {
         ScrollArea::vertical()
