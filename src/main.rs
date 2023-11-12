@@ -117,7 +117,6 @@ impl MyApp {
                     self.app_data = Some(app_data);
                 }
                 Message::UpdateWatcher(watcher) => self.watcher = Some(watcher),
-                Message::ChangeDiffType(diff_type) => self.control_data.diff_type = diff_type,
                 Message::ShowError(error) => {
                     self.control_data.error_information = error;
                     self.control_data.show_err_dialog = true;

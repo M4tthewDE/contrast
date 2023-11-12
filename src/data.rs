@@ -104,7 +104,6 @@ pub enum Message {
     UpdateAppData(AppData),
     UpdateWatcher(RecommendedWatcher),
     ShowError(String),
-    ChangeDiffType(DiffType),
     ToggleFolder(u64),
     CloseError,
 }

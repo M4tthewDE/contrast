@@ -1,13 +1,11 @@
-use std::sync::mpsc::Sender;
-
 use egui::Ui;
 
-use crate::data::{DiffType, Message};
+use crate::data::{ControlData, DiffType};
 
-pub fn ui(ui: &mut Ui, diff_type: DiffType, sender: &Sender<Message>) {
+pub fn ui(ui: &mut Ui, control_data: &mut ControlData) {
     puffin::profile_function!("diff_type::ui");
 
-    let mut selected_diff_type = diff_type;
+    let mut selected_diff_type = control_data.diff_type.clone();
     ui.horizontal(|ui| {
         if ui
             .selectable_value(
@@ -24,9 +22,7 @@ pub fn ui(ui: &mut Ui, diff_type: DiffType, sender: &Sender<Message>) {
                 )
                 .clicked()
         {
-            sender
-                .send(Message::ChangeDiffType(selected_diff_type.clone()))
-                .expect("Channel closed unexpectedly!");
+            control_data.diff_type = selected_diff_type;
         }
     });
 }

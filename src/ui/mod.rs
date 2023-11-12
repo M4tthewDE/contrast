@@ -50,7 +50,7 @@ pub fn main(
     });
     ui.separator();
 
-    diff_type::ui(ui, control_data.diff_type.clone(), sender);
+    diff_type::ui(ui, control_data);
 
     stats::ui(ui, &diff_data.stats);
 
