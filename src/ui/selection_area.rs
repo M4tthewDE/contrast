@@ -16,7 +16,7 @@ pub fn ui(ui: &mut Ui, sender: &Sender<Message>) {
         {
             if let Some(path) = rfd::FileDialog::new().pick_folder() {
                 sender
-                    .send(Message::LoadDiff(path))
+                    .send(Message::LoadRepository(path))
                     .expect("Channel closed unexpectedly!");
             }
         }
