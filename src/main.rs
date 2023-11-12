@@ -177,7 +177,12 @@ impl eframe::App for MyApp {
         puffin::profile_function!();
         puffin::GlobalProfiler::lock().new_frame();
 
-        ui::show(ctx, &self.app_data, &mut self.control_data, &self.sender);
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui::selection(ui, ctx, &self.control_data, &self.sender);
+            if let Some(app_data) = &self.app_data {
+                ui::main(ui, ctx, app_data, &mut self.control_data, &self.sender);
+            }
+        });
 
         if env::var("PROFILING").is_ok() {
             puffin::set_scopes_on(true);
