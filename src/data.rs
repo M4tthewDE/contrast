@@ -14,6 +14,7 @@ pub struct ControlData {
     pub diff_type: DiffType,
     pub selected_diff: PathBuf,
     pub should_refresh: Arc<Mutex<bool>>,
+    pub history_open: bool,
 }
 
 #[derive(Clone)]
@@ -105,6 +106,7 @@ pub enum Message {
     ChangeDiffType(DiffType),
     ChangeSelectedDiff(PathBuf),
     ToggleFolder(u64),
+    ToggleHistory,
     CloseError,
 }
 

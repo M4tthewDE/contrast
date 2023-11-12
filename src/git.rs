@@ -380,8 +380,11 @@ pub fn get_log(path: &String) -> Result<Vec<Commit>, Error> {
             id: id.to_string(),
             author,
             message: commit.message().unwrap_or("").to_owned(),
-            time: NaiveDateTime::from_timestamp_opt(commit.time().seconds(), 0)
-                .unwrap_or(NaiveDateTime::default()),
+            time: NaiveDateTime::from_timestamp_opt(
+                commit.time().seconds() + commit.time().offset_minutes() as i64 * 60,
+                0,
+            )
+            .unwrap_or_default(),
         };
 
         commits.push(commit);
