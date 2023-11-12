@@ -12,6 +12,7 @@ mod diff_area;
 mod diff_type;
 mod files_area;
 mod line_numbers;
+mod log;
 mod origins;
 mod selection_area;
 mod stats;
@@ -42,7 +43,14 @@ pub fn show(
             };
 
             ui.separator();
-            ui.heading(RichText::new(&app_data.project_path).color(Color32::WHITE));
+            ui.horizontal(|ui| {
+                ui.heading(RichText::new(&app_data.project_path).color(Color32::WHITE));
+                if ui.button("Log").clicked() {
+                    sender
+                        .send(Message::ToggleHistory)
+                        .expect("Channel closed unexpectedly!");
+                }
+            });
             ui.separator();
 
             diff_type::ui(ui, control_data.diff_type.clone(), sender);
@@ -67,6 +75,10 @@ pub fn show(
                     });
                 }
             });
+
+            if control_data.history_open {
+                log::ui(ctx, sender, &app_data.commits);
+            }
         }
     });
 }

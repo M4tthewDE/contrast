@@ -139,6 +139,9 @@ impl MyApp {
                         }
                     }
                 }
+                Message::ToggleHistory => {
+                    self.control_data.history_open = !self.control_data.history_open
+                }
                 Message::CloseError => {
                     self.control_data.error_information = "".to_string();
                     self.control_data.show_err_dialog = false;
