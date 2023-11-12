@@ -30,10 +30,6 @@ pub fn show(
             error_dialog(ctx, control_data, sender);
         }
 
-        if env::var("PROFILING").is_ok() {
-            puffin_egui::profiler_window(ctx);
-        }
-
         selection_area::ui(ui, sender);
 
         if let Some(app_data) = app_data {
