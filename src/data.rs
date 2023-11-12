@@ -112,7 +112,7 @@ pub struct Tree {
     pub id: u64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct File {
     pub path: PathBuf,
 }
@@ -208,6 +208,32 @@ mod tests {
 
         let tree = Tree::new(paths);
 
-        dbg!(tree);
+        assert_eq!(tree.id, 0);
+        assert_eq!(tree.name, "");
+        assert_eq!(tree.open, true);
+
+        assert_eq!(tree.nodes[0].id, 1);
+        assert_eq!(tree.nodes[0].name, "src");
+        assert_eq!(tree.nodes[0].open, true);
+        assert_eq!(
+            tree.nodes[0].files,
+            vec![
+                File {
+                    path: PathBuf::from("src/data.rs")
+                },
+                File {
+                    path: PathBuf::from("src/test.rs")
+                }
+            ]
+        );
+        assert_eq!(tree.nodes[0].nodes[0].id, 2);
+        assert_eq!(tree.nodes[0].nodes[0].name, "ui");
+        assert_eq!(tree.nodes[0].nodes[0].open, true);
+        assert_eq!(
+            tree.nodes[0].nodes[0].files,
+            vec![File {
+                path: PathBuf::from("src/ui/file_area.rs")
+            },]
+        );
     }
 }
