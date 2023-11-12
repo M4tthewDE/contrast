@@ -121,18 +121,6 @@ impl MyApp {
                     self.control_data.error_information = error;
                     self.control_data.show_err_dialog = true;
                 }
-                Message::ToggleFolder(id) => {
-                    if let Some(app_data) = &mut self.app_data {
-                        match self.control_data.diff_type {
-                            DiffType::Modified => {
-                                app_data.modified_diff_data.file_tree.toggle_open(id)
-                            }
-                            DiffType::Staged => {
-                                app_data.modified_diff_data.file_tree.toggle_open(id)
-                            }
-                        }
-                    }
-                }
             },
             Err(err) => match err {
                 TryRecvError::Disconnected => panic!("Channel closed unexpectedly!"),
@@ -171,8 +159,8 @@ impl eframe::App for MyApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui::selection(ui, ctx, &mut self.control_data, &self.sender);
-            if let Some(app_data) = &self.app_data {
-                ui::main(ui, ctx, app_data, &mut self.control_data, &self.sender);
+            if let Some(app_data) = &mut self.app_data {
+                ui::main(ui, ctx, app_data, &mut self.control_data);
             }
         });
 

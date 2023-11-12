@@ -104,7 +104,6 @@ pub enum Message {
     UpdateAppData(AppData),
     UpdateWatcher(RecommendedWatcher),
     ShowError(String),
-    ToggleFolder(u64),
 }
 
 #[derive(Debug, Clone)]

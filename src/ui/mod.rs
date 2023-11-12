@@ -32,18 +32,12 @@ pub fn selection(
     selection_area::ui(ui, sender);
 }
 
-pub fn main(
-    ui: &mut Ui,
-    ctx: &Context,
-    app_data: &AppData,
-    control_data: &mut ControlData,
-    sender: &Sender<Message>,
-) {
+pub fn main(ui: &mut Ui, ctx: &Context, app_data: &mut AppData, control_data: &mut ControlData) {
     puffin::profile_function!();
 
     let diff_data = match control_data.diff_type {
-        DiffType::Modified => &app_data.modified_diff_data,
-        DiffType::Staged => &app_data.staged_diff_data,
+        DiffType::Modified => app_data.modified_diff_data.clone(),
+        DiffType::Staged => app_data.staged_diff_data.clone(),
     };
 
     ui.separator();
@@ -66,7 +60,7 @@ pub fn main(
     ui.separator();
 
     ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
-        files_area::ui(ui, diff_data, control_data, sender);
+        files_area::ui(ui, &diff_data, control_data, app_data);
 
         ui.separator();
 
