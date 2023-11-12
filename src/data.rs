@@ -5,7 +5,7 @@ use std::{
 
 use notify::RecommendedWatcher;
 
-use crate::git::{self, Diff, Stats};
+use crate::git::{self, get_log, Commit, Diff, Stats};
 
 #[derive(Default)]
 pub struct ControlData {
@@ -21,6 +21,7 @@ pub struct AppData {
     pub project_path: String,
     pub modified_diff_data: DiffData,
     pub staged_diff_data: DiffData,
+    pub commits: Vec<Commit>,
 }
 #[derive(Clone)]
 pub struct DiffData {
@@ -58,6 +59,7 @@ impl DiffType {
 
 pub enum AppDataCreationError {
     Parsing,
+    Commits,
 }
 
 impl AppData {
@@ -85,15 +87,18 @@ impl AppData {
             file_tree: Tree::new(staged_diffs.iter().map(|d| d.file_name()).collect()),
         };
 
+        let commits = get_log(&project_path).map_err(|_| AppDataCreationError::Commits)?;
+
         Ok(AppData {
             project_path,
             modified_diff_data,
             staged_diff_data,
+            commits,
         })
     }
 }
 pub enum Message {
-    LoadDiff(PathBuf),
+    LoadRepository(PathBuf),
     UpdateAppData(AppData),
     UpdateWatcher(RecommendedWatcher),
     ShowError(String),

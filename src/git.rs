@@ -1,5 +1,6 @@
+use chrono::NaiveDateTime;
 use core::fmt;
-use git2::{DiffStats, Repository};
+use git2::{DiffStats, Error, Repository, Sort};
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 #[derive(Debug, Clone)]
@@ -342,6 +343,51 @@ fn parse_diffs(diffs: git2::Diff) -> Result<(Vec<Diff>, Stats), DiffParsingError
         result,
         Stats::new(diffs.stats().map_err(|_| DiffParsingError)?),
     ))
+}
+
+#[derive(Debug, Clone)]
+pub struct Commit {
+    pub id: String,
+    pub author: Author,
+    pub message: String,
+    pub time: NaiveDateTime,
+}
+
+#[derive(Debug, Clone)]
+pub struct Author {
+    pub name: String,
+    pub email: String,
+}
+
+pub fn get_log(path: &String) -> Result<Vec<Commit>, Error> {
+    let repo = Repository::open(path)?;
+    let mut revwalk = repo.revwalk()?;
+    revwalk.set_sorting(Sort::TIME)?;
+    revwalk.push_head()?;
+
+    let mut commits = Vec::new();
+
+    for id in revwalk {
+        let id = id?;
+        let commit = repo.find_commit(id)?;
+
+        let author = Author {
+            name: commit.author().name().unwrap_or("").to_owned(),
+            email: commit.author().email().unwrap_or("").to_owned(),
+        };
+
+        let commit = Commit {
+            id: id.to_string(),
+            author,
+            message: commit.message().unwrap_or("").to_owned(),
+            time: NaiveDateTime::from_timestamp_opt(commit.time().seconds(), 0)
+                .unwrap_or(NaiveDateTime::default()),
+        };
+
+        commits.push(commit);
+    }
+
+    Ok(commits)
 }
 
 #[cfg(test)]

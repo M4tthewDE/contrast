@@ -62,7 +62,7 @@ impl MyApp {
 
         if let Some(path) = path {
             sender
-                .send(Message::LoadDiff(path))
+                .send(Message::LoadRepository(path))
                 .expect("Channel closed unexpectedly!");
         }
 
@@ -105,7 +105,7 @@ impl MyApp {
     fn handle_messages(&mut self) {
         match self.receiver.try_recv() {
             Ok(msg) => match msg {
-                Message::LoadDiff(path) => {
+                Message::LoadRepository(path) => {
                     let s = self.sender.clone();
                     thread::spawn(move || match AppData::from_pathbuf(path) {
                         Ok(app_data) => s
@@ -164,7 +164,7 @@ impl MyApp {
         if *should_refresh {
             if let Some(app_data) = &self.app_data {
                 self.sender
-                    .send(Message::LoadDiff(PathBuf::from(
+                    .send(Message::LoadRepository(PathBuf::from(
                         app_data.project_path.clone(),
                     )))
                     .expect("Channel closed unexpectedly!");
