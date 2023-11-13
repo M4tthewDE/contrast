@@ -17,6 +17,8 @@ mod origins;
 mod selection_area;
 mod stats;
 
+const LOG_AREA_WIDTH: f32 = 300.0;
+
 pub fn selection(
     ui: &mut Ui,
     ctx: &Context,
@@ -32,7 +34,7 @@ pub fn selection(
     selection_area::ui(ui, sender);
 }
 
-pub fn main(ui: &mut Ui, ctx: &Context, app_data: &mut AppData, control_data: &mut ControlData) {
+pub fn main(ui: &mut Ui, app_data: &mut AppData, control_data: &mut ControlData) {
     puffin::profile_function!();
 
     let diff_data = match control_data.diff_type {
@@ -40,39 +42,43 @@ pub fn main(ui: &mut Ui, ctx: &Context, app_data: &mut AppData, control_data: &m
         DiffType::Staged => app_data.staged_diff_data.clone(),
     };
 
+    ui.heading(RichText::new(&app_data.project_path).color(Color32::WHITE));
     ui.separator();
+
     ui.horizontal(|ui| {
-        ui.heading(RichText::new(&app_data.project_path).color(Color32::WHITE));
-        if ui.button("Log").clicked() {
-            control_data.history_open = true;
+        diff_type::ui(ui, control_data);
+        ui.separator();
+        if ui
+            .button(RichText::new("Git log").color(Color32::WHITE))
+            .clicked()
+        {
+            control_data.log_open = !control_data.log_open;
         }
     });
-    ui.separator();
 
-    diff_type::ui(ui, control_data);
-
+    ui.add_space(10.0);
     stats::ui(ui, &diff_data.stats);
-
-    if control_data.history_open {
-        log::ui(ctx, &app_data.commits, control_data);
-    }
-
-    if diff_data.diffs.is_empty() {
-        return;
-    }
-
     ui.separator();
 
     ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
-        files_area::ui(ui, &diff_data, control_data, app_data);
+        if !diff_data.diffs.is_empty() {
+            files_area::ui(ui, &diff_data, control_data, app_data);
 
-        ui.separator();
+            ui.separator();
 
-        if let Some(diff) = diff_data.get_diff(&control_data.selected_diff) {
-            ui.vertical(|ui| {
-                ui.label(control_data.selected_diff.to_str().unwrap());
-                diff_area::ui(ui, &diff);
-            });
+            if let Some(diff) = diff_data.get_diff(&control_data.selected_diff) {
+                ui.vertical(|ui| {
+                    ui.label(control_data.selected_diff.to_str().unwrap());
+                    diff_area::ui(ui, &diff);
+                });
+            }
+        }
+
+        ui.add_space(ui.available_width() - LOG_AREA_WIDTH);
+
+        if control_data.log_open {
+            ui.separator();
+            log::ui(ui, &app_data.commits, control_data);
         }
     });
 }

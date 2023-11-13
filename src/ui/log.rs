@@ -1,25 +1,33 @@
 use std::ops::Range;
 
-use egui::{Color32, Context, Label, RichText, ScrollArea, Sense, Ui, Window};
+use egui::{Color32, Label, RichText, ScrollArea, Sense, Ui};
 
 use crate::{data::ControlData, git::Commit};
 
-pub fn ui(ctx: &Context, commits: &[Commit], control_data: &mut ControlData) {
+pub fn ui(ui: &mut Ui, commits: &[Commit], control_data: &mut ControlData) {
     puffin::profile_function!();
 
-    let mut open = true;
-    Window::new("History").open(&mut open).show(ctx, |ui| {
+    ui.vertical(|ui| {
+        ui.horizontal(|ui| {
+            ui.heading("Git log");
+            if ui.button("Close").clicked() {
+                control_data.log_open = false;
+            };
+        });
+
         ui.horizontal(|ui| {
             ui.label("Search:");
             ui.text_edit_singleline(&mut control_data.search_string);
         });
+
+        ui.separator();
 
         let commits: Vec<&Commit> = commits
             .iter()
             .filter(|c| c.contains(&control_data.search_string))
             .collect();
 
-        ScrollArea::vertical()
+        ScrollArea::both()
             .id_source("history scroll area")
             .show_rows(ui, 100.0, commits.len(), |ui, row_range| {
                 let Range { start, end } = row_range;
@@ -28,10 +36,6 @@ pub fn ui(ctx: &Context, commits: &[Commit], control_data: &mut ControlData) {
                 }
             });
     });
-
-    if !open {
-        control_data.history_open = false;
-    }
 }
 
 fn show_commit(ui: &mut Ui, commit: &Commit) {

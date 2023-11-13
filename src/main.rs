@@ -151,7 +151,7 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui::selection(ui, ctx, &mut self.control_data, &self.sender);
             if let Some(app_data) = &mut self.app_data {
-                ui::main(ui, ctx, app_data, &mut self.control_data);
+                ui::main(ui, app_data, &mut self.control_data);
             }
         });
 
