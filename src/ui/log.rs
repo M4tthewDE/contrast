@@ -6,6 +6,7 @@ use crate::{data::ControlData, git::Commit};
 
 pub fn ui(ui: &mut Ui, commits: &[Commit], control_data: &mut ControlData) {
     puffin::profile_function!();
+    ui.add_space(10.0);
 
     ui.vertical(|ui| {
         ui.horizontal(|ui| {
@@ -27,6 +28,7 @@ pub fn ui(ui: &mut Ui, commits: &[Commit], control_data: &mut ControlData) {
             .filter(|c| c.contains(&control_data.search_string))
             .collect();
 
+        // consider using https://github.com/emilk/egui/issues/1376
         ScrollArea::both()
             .id_source("history scroll area")
             .show_rows(ui, 100.0, commits.len(), |ui, row_range| {

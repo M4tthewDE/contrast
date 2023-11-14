@@ -1,6 +1,6 @@
 use std::sync::mpsc::Sender;
 
-use egui::{Align, Color32, Context, CursorIcon, Layout, RichText, Sense, Ui, Window};
+use egui::{Align, Color32, Context, Layout, RichText, Ui, Window};
 
 use crate::{
     data::{DiffType, Message},
@@ -12,7 +12,7 @@ mod diff_area;
 mod diff_type;
 mod files_area;
 mod line_numbers;
-mod log;
+pub mod log;
 mod origins;
 mod selection_area;
 mod stats;
@@ -67,16 +67,9 @@ pub fn main(ui: &mut Ui, app_data: &mut AppData, control_data: &mut ControlData)
             if let Some(diff) = diff_data.get_diff(&control_data.selected_diff) {
                 ui.vertical(|ui| {
                     ui.label(control_data.selected_diff.to_str().unwrap());
-                    diff_area::ui(ui, &diff, control_data.log_size);
+                    diff_area::ui(ui, &diff);
                 });
             }
-        }
-
-        ui.add_space(ui.available_width() - control_data.log_size);
-
-        if control_data.log_open {
-            draggable_separator(ui, &mut control_data.log_size);
-            log::ui(ui, &app_data.commits, control_data);
         }
     });
 }
@@ -92,15 +85,4 @@ pub fn error_dialog(ctx: &Context, control_data: &mut ControlData) {
                 control_data.show_err_dialog = false;
             }
         });
-}
-
-fn draggable_separator(ui: &mut Ui, size: &mut f32) {
-    let response = ui
-        .separator()
-        .interact(Sense::drag())
-        .on_hover_and_drag_cursor(CursorIcon::ResizeColumn);
-
-    if response.dragged() {
-        *size = (*size - response.drag_delta().x).max(115.0);
-    }
 }

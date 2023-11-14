@@ -148,6 +148,16 @@ impl eframe::App for MyApp {
         puffin::profile_function!();
         puffin::GlobalProfiler::lock().new_frame();
 
+        if let Some(app_data) = &mut self.app_data {
+            egui::SidePanel::right("git log panel").show_animated(
+                ctx,
+                self.control_data.log_open,
+                |ui| {
+                    ui::log::ui(ui, &app_data.commits, &mut self.control_data);
+                },
+            );
+        }
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui::selection(ui, ctx, &mut self.control_data, &self.sender);
             if let Some(app_data) = &mut self.app_data {
