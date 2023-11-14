@@ -144,18 +144,16 @@ impl MyApp {
 }
 
 impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
         puffin::profile_function!();
         puffin::GlobalProfiler::lock().new_frame();
 
         if let Some(app_data) = &mut self.app_data {
-            egui::SidePanel::right("git log panel").show_animated(
-                ctx,
-                self.control_data.log_open,
-                |ui| {
+            egui::SidePanel::right("git log panel")
+                .max_width(frame.info().window_info.size.x / 2.0)
+                .show_animated(ctx, self.control_data.log_open, |ui| {
                     ui::log::ui(ui, &app_data.commits, &mut self.control_data);
-                },
-            );
+                });
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
