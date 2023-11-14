@@ -7,7 +7,6 @@ use notify::RecommendedWatcher;
 
 use crate::git::{self, get_log, Commit, Diff, Stats};
 
-#[derive(Default)]
 pub struct ControlData {
     pub show_err_dialog: bool,
     pub error_information: String,
@@ -17,6 +16,23 @@ pub struct ControlData {
     pub search_string: String,
     pub profiler: bool,
     pub log_open: bool,
+    pub log_size: f32,
+}
+
+impl Default for ControlData {
+    fn default() -> Self {
+        Self {
+            show_err_dialog: false,
+            error_information: String::default(),
+            diff_type: DiffType::default(),
+            selected_diff: PathBuf::default(),
+            should_refresh: Arc::default(),
+            search_string: String::default(),
+            profiler: false,
+            log_open: false,
+            log_size: 300.0,
+        }
+    }
 }
 
 #[derive(Clone)]

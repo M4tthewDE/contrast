@@ -4,10 +4,10 @@ use egui::{Color32, RichText, ScrollArea, Ui};
 
 use crate::{
     git::Diff,
-    ui::{code, line_numbers, origins, LOG_AREA_WIDTH},
+    ui::{code, line_numbers, origins},
 };
 
-pub fn ui(ui: &mut Ui, diff: &Diff) {
+pub fn ui(ui: &mut Ui, diff: &Diff, log_area_width: f32) {
     puffin::profile_function!();
 
     if diff.lines.is_empty() {
@@ -16,7 +16,7 @@ pub fn ui(ui: &mut Ui, diff: &Diff) {
     }
 
     let total_rows = diff.lines.len() + diff.headers.len();
-    let scroll_width = ui.available_width() - LOG_AREA_WIDTH;
+    let scroll_width = ui.available_width() - log_area_width;
 
     ScrollArea::both()
         .id_source("diff area")
