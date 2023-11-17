@@ -16,7 +16,41 @@ pub struct ControlData {
     pub should_refresh: Arc<Mutex<bool>>,
     pub search_string: String,
     pub profiler: bool,
-    pub log_open: bool,
+    pub commit_selector_open: bool,
+    pub first_selected_commit: Option<String>,
+    pub second_selected_commit: Option<String>,
+}
+
+pub struct SelectCommitError;
+
+impl ControlData {
+    pub fn select_commit(&mut self, id: String) -> Result<String, SelectCommitError> {
+        if self.first_selected_commit.is_none() {
+            self.first_selected_commit = Some(id.clone());
+            return Ok(id);
+        }
+
+        if self.second_selected_commit.is_none() {
+            self.second_selected_commit = Some(id.clone());
+        }
+
+        Ok(id)
+    }
+
+    pub fn selected_commits_short(&self) -> (Option<String>, Option<String>) {
+        (
+            self.first_selected_commit
+                .clone()
+                .map(|c| c[0..8].to_string()),
+            self.second_selected_commit
+                .clone()
+                .map(|c| c[0..8].to_string()),
+        )
+    }
+
+    pub fn both_commits_selected(&self) -> bool {
+        self.first_selected_commit.is_some() && self.second_selected_commit.is_some()
+    }
 }
 
 #[derive(Clone)]

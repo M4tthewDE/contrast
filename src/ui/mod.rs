@@ -32,7 +32,7 @@ pub fn selection(
     selection_area::ui(ui, sender);
 }
 
-pub fn main(ui: &mut Ui, app_data: &mut AppData, control_data: &mut ControlData) {
+pub fn main(ctx: &Context, ui: &mut Ui, app_data: &mut AppData, control_data: &mut ControlData) {
     puffin::profile_function!();
 
     let diff_data = match control_data.diff_type {
@@ -47,10 +47,10 @@ pub fn main(ui: &mut Ui, app_data: &mut AppData, control_data: &mut ControlData)
         diff_type::ui(ui, control_data);
         ui.separator();
         if ui
-            .button(RichText::new("Git log").color(Color32::WHITE))
+            .button(RichText::new("Select commits").color(Color32::WHITE))
             .clicked()
         {
-            control_data.log_open = !control_data.log_open;
+            control_data.commit_selector_open = true;
         }
     });
 
@@ -72,6 +72,15 @@ pub fn main(ui: &mut Ui, app_data: &mut AppData, control_data: &mut ControlData)
             }
         }
     });
+
+    if control_data.commit_selector_open {
+        Window::new("Commits")
+            .collapsible(false)
+            .resizable(true)
+            .show(ctx, |ui| {
+                log::ui(ui, &app_data.commits, control_data);
+            });
+    }
 }
 
 pub fn error_dialog(ctx: &Context, control_data: &mut ControlData) {

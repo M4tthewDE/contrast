@@ -10,10 +10,32 @@ pub fn ui(ui: &mut Ui, commits: &[Commit], control_data: &mut ControlData) {
 
     ui.vertical(|ui| {
         ui.horizontal(|ui| {
-            ui.heading("Git log");
-            if ui.button("Close").clicked() {
-                control_data.log_open = false;
-            };
+            ui.label(RichText::new("Selected commits:").color(Color32::WHITE));
+
+            let (first, second) = control_data.selected_commits_short();
+
+            if let Some(c) = first {
+                if ui.button(c).on_hover_text("Click to remove").clicked() {
+                    control_data.first_selected_commit = None;
+                }
+            }
+            if let Some(c) = second {
+                if ui.button(c).on_hover_text("Click to remove").clicked() {
+                    control_data.second_selected_commit = None;
+                }
+            }
+        });
+
+        ui.horizontal(|ui| {
+            if ui.button("Abort").clicked() {
+                control_data.commit_selector_open = false;
+                control_data.first_selected_commit = None;
+                control_data.second_selected_commit = None;
+            }
+
+            if control_data.both_commits_selected() && ui.button("Done").clicked() {
+                control_data.commit_selector_open = false;
+            }
         });
 
         ui.horizontal(|ui| {
@@ -34,13 +56,13 @@ pub fn ui(ui: &mut Ui, commits: &[Commit], control_data: &mut ControlData) {
             .show_rows(ui, 100.0, commits.len(), |ui, row_range| {
                 let Range { start, end } = row_range;
                 for commit in &commits[start..end] {
-                    show_commit(ui, commit)
+                    show_commit(ui, commit, control_data);
                 }
             });
     });
 }
 
-fn show_commit(ui: &mut Ui, commit: &Commit) {
+fn show_commit(ui: &mut Ui, commit: &Commit, control_data: &mut ControlData) {
     puffin::profile_function!();
 
     if ui
@@ -69,5 +91,10 @@ fn show_commit(ui: &mut Ui, commit: &Commit) {
         ui.add_space(10.0);
         ui.label(RichText::new(commit.message.to_string()).color(Color32::WHITE));
     });
+
+    if ui.button("Select").clicked() && control_data.select_commit(commit.id.clone()).is_err() {
+        control_data.error_information = "Error selecting commit!".to_string();
+        control_data.show_err_dialog = true;
+    }
     ui.separator();
 }
