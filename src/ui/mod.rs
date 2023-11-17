@@ -8,11 +8,11 @@ use crate::{
 };
 
 mod code;
+mod commits;
 mod diff_area;
 mod diff_type;
 mod files_area;
 mod line_numbers;
-pub mod log;
 mod origins;
 mod selection_area;
 mod stats;
@@ -78,7 +78,7 @@ pub fn main(ctx: &Context, ui: &mut Ui, app_data: &mut AppData, control_data: &m
             .collapsible(false)
             .resizable(true)
             .show(ctx, |ui| {
-                log::ui(ui, &app_data.commits, control_data);
+                commits::ui(ui, &app_data.commits, control_data);
             });
     }
 }
