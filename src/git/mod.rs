@@ -1,10 +1,12 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use core::fmt;
 use git2::Repository;
+use header::Header;
 use stats::Stats;
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 pub mod commit;
+mod header;
 pub mod stats;
 
 #[derive(Debug, Clone)]
@@ -122,29 +124,6 @@ impl fmt::Display for Diff {
         }
 
         Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Header {
-    pub content: String,
-    pub line: u32,
-}
-
-impl Header {
-    fn new(raw: String) -> Result<Header> {
-        let line: u32 = raw
-            .split(' ')
-            .nth(2)
-            .context("less elements than expected")?
-            .split(',')
-            .next()
-            .context("less elements than expected")?
-            .get(1..)
-            .context("less elements than expected")?
-            .parse()?;
-
-        Ok(Header { content: raw, line })
     }
 }
 
@@ -304,16 +283,4 @@ fn parse_diffs(diffs: git2::Diff) -> Result<(Vec<Diff>, Stats)> {
     )?;
 
     Ok((result, Stats::new(diffs.stats()?)))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_header() {
-        let header =
-            Header::new("@@ -209,6 +222,33 @@ impl fmt::Display for Diff {".to_string()).unwrap();
-        assert_eq!(header.line, 222)
-    }
 }
