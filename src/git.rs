@@ -1,7 +1,10 @@
 use chrono::NaiveDateTime;
 use core::fmt;
-use git2::{DiffStats, Error, Repository, Sort};
+use git2::{Error, Repository, Sort};
+use stats::Stats;
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
+
+pub mod stats;
 
 #[derive(Debug, Clone)]
 pub struct Diff {
@@ -175,23 +178,6 @@ impl Line {
 impl fmt::Display for Line {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {}", self.origin, self.content)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Stats {
-    pub files_changed: usize,
-    pub insertions: usize,
-    pub deletions: usize,
-}
-
-impl Stats {
-    fn new(diff_stats: DiffStats) -> Stats {
-        Stats {
-            files_changed: diff_stats.files_changed(),
-            insertions: diff_stats.insertions(),
-            deletions: diff_stats.deletions(),
-        }
     }
 }
 

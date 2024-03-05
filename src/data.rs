@@ -5,7 +5,7 @@ use std::{
 
 use notify::RecommendedWatcher;
 
-use crate::git::{self, get_log, Commit, Diff, Stats};
+use crate::git::{self, get_log, stats::Stats, Commit, Diff};
 
 #[derive(Default)]
 pub struct ControlData {

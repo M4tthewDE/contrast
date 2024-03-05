@@ -1,6 +1,6 @@
 use egui::{Color32, RichText, Ui};
 
-use crate::git::Stats;
+use crate::git::stats::Stats;
 
 pub fn ui(ui: &mut Ui, stats: &Stats) {
     puffin::profile_function!();
