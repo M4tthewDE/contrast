@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use egui::{Color32, Label, RichText, ScrollArea, Sense, Ui};
 
-use crate::{data::ControlData, git::Commit};
+use crate::{data::ControlData, git::commit::Commit};
 
 pub fn ui(ui: &mut Ui, commits: &[Commit], control_data: &mut ControlData) {
     puffin::profile_function!();

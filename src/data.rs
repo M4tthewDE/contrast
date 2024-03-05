@@ -5,7 +5,7 @@ use std::{
 
 use notify::RecommendedWatcher;
 
-use crate::git::{self, get_log, stats::Stats, Commit, Diff};
+use crate::git::{self, commit, commit::Commit, stats::Stats, Diff};
 
 #[derive(Default)]
 pub struct ControlData {
@@ -89,7 +89,7 @@ impl AppData {
             file_tree: Tree::new(staged_diffs.iter().map(|d| d.file_name()).collect()),
         };
 
-        let commits = get_log(&project_path).map_err(|_| AppDataCreationError::Commits)?;
+        let commits = commit::get_log(&project_path).map_err(|_| AppDataCreationError::Commits)?;
 
         Ok(AppData {
             project_path,
