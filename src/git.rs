@@ -1,6 +1,7 @@
+use anyhow::{Context, Result};
 use chrono::NaiveDateTime;
 use core::fmt;
-use git2::{Error, Repository, Sort};
+use git2::{Repository, Sort};
 use stats::Stats;
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
@@ -130,22 +131,18 @@ pub struct Header {
     pub line: u32,
 }
 
-#[derive(Debug)]
-struct HeaderParserError;
-
 impl Header {
-    fn new(raw: String) -> Result<Header, HeaderParserError> {
+    fn new(raw: String) -> Result<Header> {
         let line: u32 = raw
             .split(' ')
             .nth(2)
-            .ok_or(HeaderParserError)?
+            .context("less elements than expected")?
             .split(',')
             .next()
-            .ok_or(HeaderParserError)?
+            .context("less elements than expected")?
             .get(1..)
-            .ok_or(HeaderParserError)?
-            .parse()
-            .map_err(|_| HeaderParserError)?;
+            .context("less elements than expected")?
+            .parse()?;
 
         Ok(Header { content: raw, line })
     }
@@ -181,154 +178,132 @@ impl fmt::Display for Line {
     }
 }
 
-#[derive(Debug)]
-pub struct DiffParsingError;
-
-pub fn get_staged_diffs(path: &String) -> Result<(Vec<Diff>, Stats), DiffParsingError> {
-    let repo = Repository::open(path).map_err(|_| DiffParsingError)?;
-    let head = repo
-        .head()
-        .map_err(|_| DiffParsingError)?
-        .peel_to_tree()
-        .map_err(|_| DiffParsingError)?;
-    let diffs = repo
-        .diff_tree_to_index(Some(&head), None, None)
-        .map_err(|_| DiffParsingError)?;
-
+pub fn get_staged_diffs(path: &String) -> Result<(Vec<Diff>, Stats)> {
+    let repo = Repository::open(path)?;
+    let head = repo.head()?.peel_to_tree()?;
+    let diffs = repo.diff_tree_to_index(Some(&head), None, None)?;
     parse_diffs(diffs)
 }
 
-pub fn get_diffs(path: &String) -> Result<(Vec<Diff>, Stats), DiffParsingError> {
-    let repo = Repository::open(path).map_err(|_| DiffParsingError)?;
-    let diffs = repo
-        .diff_index_to_workdir(None, None)
-        .map_err(|_| DiffParsingError)?;
-
+pub fn get_diffs(path: &String) -> Result<(Vec<Diff>, Stats)> {
+    let repo = Repository::open(path)?;
+    let diffs = repo.diff_index_to_workdir(None, None)?;
     parse_diffs(diffs)
 }
 
-fn parse_diffs(diffs: git2::Diff) -> Result<(Vec<Diff>, Stats), DiffParsingError> {
+fn parse_diffs(diffs: git2::Diff) -> Result<(Vec<Diff>, Stats)> {
     let line_groups = Rc::new(RefCell::new(Vec::new()));
-    diffs
-        .foreach(
-            &mut |_delta, _num| {
-                line_groups.borrow_mut().push(Vec::new());
-                true
-            },
-            None,
-            None,
-            Some(
-                &mut |_delta, _hunk, _line| match std::str::from_utf8(_line.content()) {
-                    Ok(c) => {
-                        let mut content = c.to_string();
-                        if content.ends_with('\n') {
+    diffs.foreach(
+        &mut |_delta, _num| {
+            line_groups.borrow_mut().push(Vec::new());
+            true
+        },
+        None,
+        None,
+        Some(
+            &mut |_delta, _hunk, _line| match std::str::from_utf8(_line.content()) {
+                Ok(c) => {
+                    let mut content = c.to_string();
+                    if content.ends_with('\n') {
+                        content.pop();
+                        if content.ends_with('\r') {
                             content.pop();
-                            if content.ends_with('\r') {
-                                content.pop();
-                            }
                         }
+                    }
 
-                        let line = Line::new(
-                            _line.old_lineno(),
-                            _line.new_lineno(),
-                            content,
-                            _line.origin(),
-                        );
+                    let line = Line::new(
+                        _line.old_lineno(),
+                        _line.new_lineno(),
+                        content,
+                        _line.origin(),
+                    );
 
-                        match line_groups.borrow_mut().last_mut() {
+                    match line_groups.borrow_mut().last_mut() {
+                        Some(last) => {
+                            last.push(line);
+                            true
+                        }
+                        None => false,
+                    }
+                }
+                Err(_) => false,
+            },
+        ),
+    )?;
+
+    let header_groups = Rc::new(RefCell::new(Vec::new()));
+    diffs.foreach(
+        &mut |_delta, _num| {
+            header_groups.borrow_mut().push(Vec::new());
+            true
+        },
+        None,
+        Some(
+            &mut |_delta, _hunk| match std::str::from_utf8(_hunk.header()) {
+                Ok(c) => {
+                    let mut content = c.to_string();
+                    if content.ends_with('\n') {
+                        content.pop();
+                        if content.ends_with('\r') {
+                            content.pop();
+                        }
+                    }
+
+                    match Header::new(content) {
+                        Ok(header) => match header_groups.borrow_mut().last_mut() {
                             Some(last) => {
-                                last.push(line);
+                                last.push(header);
                                 true
                             }
                             None => false,
-                        }
+                        },
+                        Err(_) => false,
                     }
-                    Err(_) => false,
-                },
-            ),
-        )
-        .map_err(|_| DiffParsingError)?;
-
-    let header_groups = Rc::new(RefCell::new(Vec::new()));
-    diffs
-        .foreach(
-            &mut |_delta, _num| {
-                header_groups.borrow_mut().push(Vec::new());
-                true
+                }
+                Err(_) => false,
             },
-            None,
-            Some(
-                &mut |_delta, _hunk| match std::str::from_utf8(_hunk.header()) {
-                    Ok(c) => {
-                        let mut content = c.to_string();
-                        if content.ends_with('\n') {
-                            content.pop();
-                            if content.ends_with('\r') {
-                                content.pop();
-                            }
-                        }
-
-                        match Header::new(content) {
-                            Ok(header) => match header_groups.borrow_mut().last_mut() {
-                                Some(last) => {
-                                    last.push(header);
-                                    true
-                                }
-                                None => false,
-                            },
-                            Err(_) => false,
-                        }
-                    }
-                    Err(_) => false,
-                },
-            ),
-            None,
-        )
-        .map_err(|_| DiffParsingError)?;
+        ),
+        None,
+    )?;
 
     let mut result = Vec::new();
-    diffs
-        .foreach(
-            &mut |_delta, _num| {
-                let Some(old_file) = _delta.old_file().path() else {
-                    return false;
-                };
+    diffs.foreach(
+        &mut |_delta, _num| {
+            let Some(old_file) = _delta.old_file().path() else {
+                return false;
+            };
 
-                let Some(new_file) = _delta.new_file().path() else {
-                    return false;
-                };
-                let mut hg = header_groups.borrow_mut();
-                let Some(headers) = hg.first() else {
-                    return false;
-                };
+            let Some(new_file) = _delta.new_file().path() else {
+                return false;
+            };
+            let mut hg = header_groups.borrow_mut();
+            let Some(headers) = hg.first() else {
+                return false;
+            };
 
-                let mut lg = line_groups.borrow_mut();
-                let Some(lines) = lg.first() else {
-                    return false;
-                };
+            let mut lg = line_groups.borrow_mut();
+            let Some(lines) = lg.first() else {
+                return false;
+            };
 
-                let diff = Diff::new(
-                    old_file.to_path_buf(),
-                    new_file.to_path_buf(),
-                    headers.to_vec(),
-                    lines.to_vec(),
-                );
-                result.push(diff);
+            let diff = Diff::new(
+                old_file.to_path_buf(),
+                new_file.to_path_buf(),
+                headers.to_vec(),
+                lines.to_vec(),
+            );
+            result.push(diff);
 
-                hg.remove(0);
-                lg.remove(0);
-                true
-            },
-            None,
-            None,
-            None,
-        )
-        .map_err(|_| DiffParsingError)?;
+            hg.remove(0);
+            lg.remove(0);
+            true
+        },
+        None,
+        None,
+        None,
+    )?;
 
-    Ok((
-        result,
-        Stats::new(diffs.stats().map_err(|_| DiffParsingError)?),
-    ))
+    Ok((result, Stats::new(diffs.stats()?)))
 }
 
 #[derive(Debug, Clone)]
@@ -354,7 +329,7 @@ pub struct Author {
     pub email: String,
 }
 
-pub fn get_log(path: &String) -> Result<Vec<Commit>, Error> {
+pub fn get_log(path: &String) -> Result<Vec<Commit>> {
     let repo = Repository::open(path)?;
     let mut revwalk = repo.revwalk()?;
     revwalk.set_sorting(Sort::TIME)?;
