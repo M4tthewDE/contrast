@@ -28,7 +28,20 @@ pub struct Diff {
 
 impl Diff {
     fn new(old_file: PathBuf, new_file: PathBuf, headers: Vec<Header>, lines: Vec<Line>) -> Diff {
-        let longest_line = get_longest_line(&lines);
+        let mut longest_line = 0;
+        for line in &lines {
+            let line_no = match line.origin {
+                '+' => line.new_lineno.unwrap_or(0),
+                '-' => line.old_lineno.unwrap_or(0),
+                _ => line.new_lineno.unwrap_or(0),
+            };
+
+            if line_no > longest_line {
+                longest_line = line_no;
+            }
+        }
+
+        let longest_line_len = longest_line.to_string().len();
 
         let mut content = "".to_owned();
         let mut origins_content = "".to_owned();
@@ -58,7 +71,7 @@ impl Diff {
                 _ => line.new_lineno.unwrap_or(0).to_string(),
             };
 
-            while line_no.len() != longest_line {
+            while line_no.len() != longest_line_len {
                 line_no = format!(" {}", line_no);
             }
 
@@ -93,23 +106,6 @@ impl Diff {
     pub fn file_name(&self) -> PathBuf {
         self.old_file.to_owned()
     }
-}
-
-fn get_longest_line(lines: &Vec<Line>) -> usize {
-    let mut longest_line = 0;
-    for line in lines {
-        let line_no = match line.origin {
-            '+' => line.new_lineno.unwrap_or(0),
-            '-' => line.old_lineno.unwrap_or(0),
-            _ => line.new_lineno.unwrap_or(0),
-        };
-
-        if line_no > longest_line {
-            longest_line = line_no;
-        }
-    }
-
-    longest_line.to_string().len()
 }
 
 impl fmt::Display for Diff {
