@@ -42,7 +42,7 @@ fn show_tree(
                     DiffType::Modified => {
                         app_data.modified_diff_data.file_tree.toggle_open(tree.id)
                     }
-                    DiffType::Staged => app_data.modified_diff_data.file_tree.toggle_open(tree.id),
+                    DiffType::Staged => app_data.staged_diff_data.file_tree.toggle_open(tree.id),
                 }
             };
         });
