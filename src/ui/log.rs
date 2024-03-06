@@ -29,7 +29,7 @@ pub fn ui(ui: &mut Ui, commits: &[Commit], control_data: &mut ControlData) {
             .collect();
 
         // consider using https://github.com/emilk/egui/issues/1376
-        ScrollArea::both()
+        ScrollArea::vertical()
             .id_source("history scroll area")
             .show_rows(ui, 100.0, commits.len(), |ui, row_range| {
                 let Range { start, end } = row_range;

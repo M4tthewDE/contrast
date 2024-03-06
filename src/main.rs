@@ -176,7 +176,7 @@ impl eframe::App for MyApp {
 
         if let Some(app_data) = &mut self.app_data {
             egui::SidePanel::right("git log panel")
-                .min_width(350.0)
+                .resizable(false)
                 .show_animated(ctx, self.control_data.log_open, |ui| {
                     ui::log::ui(ui, &app_data.commits, &mut self.control_data);
                 });
