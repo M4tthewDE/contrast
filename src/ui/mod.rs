@@ -47,7 +47,7 @@ pub fn main(ui: &mut Ui, app_data: &mut AppData, control_data: &mut ControlData)
         diff_type::ui(ui, control_data);
         ui.separator();
         if ui
-            .button(RichText::new("Git log").color(Color32::WHITE))
+            .button(RichText::new("Log").color(Color32::WHITE))
             .clicked()
         {
             control_data.log_open = !control_data.log_open;

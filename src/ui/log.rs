@@ -10,7 +10,7 @@ pub fn ui(ui: &mut Ui, commits: &[Commit], control_data: &mut ControlData) {
 
     ui.vertical(|ui| {
         ui.horizontal(|ui| {
-            ui.heading("Git log");
+            ui.heading("Log");
             if ui.button("Close").clicked() {
                 control_data.log_open = false;
             };
