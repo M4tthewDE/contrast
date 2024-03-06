@@ -29,7 +29,7 @@ pub fn selection(
         error_dialog(ctx, control_data);
     }
 
-    selection_area::ui(ui, sender);
+    selection_area::ui(ctx, ui, sender, control_data);
 }
 
 pub fn main(ui: &mut Ui, app_data: &mut AppData, control_data: &mut ControlData) {

@@ -17,6 +17,8 @@ pub struct ControlData {
     pub search_string: String,
     pub profiler: bool,
     pub log_open: bool,
+    pub font_license: String,
+    pub show_about_dialog: bool,
 }
 
 #[derive(Clone)]

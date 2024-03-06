@@ -8,7 +8,7 @@ use std::{
 use data::{AppData, ControlData, DiffType, Message};
 
 use eframe::egui;
-use egui::Context;
+use egui::{Context, FontData, FontDefinitions, FontFamily};
 use notify::RecommendedWatcher;
 
 mod data;
@@ -54,6 +54,7 @@ struct MyApp {
     sender: Sender<Message>,
     receiver: Receiver<Message>,
     watcher: Option<RecommendedWatcher>,
+    font_data: FontData,
 }
 
 impl MyApp {
@@ -64,15 +65,20 @@ impl MyApp {
             load_repository(path, &sender);
         }
 
+        let font_data = FontData::from_static(include_bytes!("fonts/JetBrainsMono-Regular.ttf"));
+        let font_license = include_str!("fonts/OFL.txt").to_string();
+
         MyApp {
             app_data: None,
             control_data: ControlData {
                 profiler,
+                font_license,
                 ..Default::default()
             },
             sender,
             receiver,
             watcher: None,
+            font_data,
         }
     }
 
@@ -147,6 +153,26 @@ impl eframe::App for MyApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         puffin::profile_function!();
         puffin::GlobalProfiler::lock().new_frame();
+
+        let mut fonts = FontDefinitions::default();
+
+        fonts
+            .font_data
+            .insert("JetBrainsMono-Regular".to_owned(), self.font_data.clone());
+
+        fonts
+            .families
+            .get_mut(&FontFamily::Proportional)
+            .unwrap()
+            .insert(0, "JetBrainsMono-Regular".to_owned());
+
+        fonts
+            .families
+            .get_mut(&FontFamily::Monospace)
+            .unwrap()
+            .insert(0, "JetBrainsMono-Regular".to_owned());
+
+        ctx.set_fonts(fonts);
 
         if let Some(app_data) = &mut self.app_data {
             egui::SidePanel::right("git log panel")
