@@ -3,6 +3,7 @@
 use std::io::{Cursor, Read};
 
 use anyhow::{anyhow, Result};
+use chrono::{TimeZone, Utc};
 
 fn parse_index_file(bytes: &[u8]) -> Result<()> {
     let mut cursor = Cursor::new(bytes);
@@ -31,8 +32,34 @@ fn parse_index_file(bytes: &[u8]) -> Result<()> {
 fn parse_index_entry(cursor: &mut Cursor<&[u8]>) -> Result<()> {
     let mut metadata_changed_secs = [0u8; 4];
     cursor.read_exact(&mut metadata_changed_secs)?;
-    let metadata_changed_secs = u32::from_be_bytes(metadata_changed_secs);
-    dbg!(metadata_changed_secs);
+    let mut nanosec_fraction = [0u8; 4];
+    cursor.read_exact(&mut nanosec_fraction)?;
+    let metadata_changed = Utc.timestamp_opt(
+        u32::from_be_bytes(metadata_changed_secs) as i64,
+        u32::from_be_bytes(nanosec_fraction),
+    );
+    dbg!(metadata_changed);
+
+    let mut data_changed_secs = [0u8; 4];
+    cursor.read_exact(&mut data_changed_secs)?;
+    let mut nanosec_fraction = [0u8; 4];
+    cursor.read_exact(&mut nanosec_fraction)?;
+    let data_changed = Utc.timestamp_opt(
+        u32::from_be_bytes(data_changed_secs) as i64,
+        u32::from_be_bytes(nanosec_fraction),
+    );
+    dbg!(data_changed);
+
+    let mut dev = [0u8; 4];
+    cursor.read_exact(&mut dev)?;
+    let dev = u32::from_be_bytes(dev);
+    dbg!(dev);
+
+    let mut ino = [0u8; 4];
+    cursor.read_exact(&mut ino)?;
+    let ino = u32::from_be_bytes(ino);
+    dbg!(ino);
+
     Ok(())
 }
 
