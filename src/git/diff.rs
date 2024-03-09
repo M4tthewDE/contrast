@@ -2,8 +2,8 @@
 
 use std::io::{BufRead, Cursor, Read};
 
-use anyhow::{anyhow, Result};
-use chrono::{TimeZone, Utc};
+use anyhow::{anyhow, Context, Result};
+use chrono::NaiveDateTime;
 
 #[derive(Debug, Clone)]
 enum Version {
@@ -46,7 +46,8 @@ fn parse_index_file(bytes: &[u8]) -> Result<()> {
     let index_entry_num = u32::from_be_bytes(index_entry_num);
     dbg!(index_entry_num);
 
-    parse_index_entry(&mut cursor, version)?;
+    let index_entry = parse_index_entry(&mut cursor, version)?;
+    dbg!(index_entry);
     todo!();
 }
 
@@ -70,63 +71,84 @@ impl TryFrom<u32> for ModeType {
     }
 }
 
-fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: Version) -> Result<()> {
+#[derive(Debug)]
+struct IndexEntry {
+    metadata_changed: NaiveDateTime,
+    data_changed: NaiveDateTime,
+    dev: u32,
+    ino: u32,
+    mode_type: ModeType,
+    user_permissions: u32,
+    group_permissions: u32,
+    other_permissions: u32,
+    uid: u32,
+    gid: u32,
+    file_size: u32,
+    assume_valid: bool,
+    extended: bool,
+    stage: u16,
+    name_length: u16,
+    name: String,
+}
+
+fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: Version) -> Result<IndexEntry> {
     let mut metadata_changed_secs = [0u8; 4];
     cursor.read_exact(&mut metadata_changed_secs)?;
     let mut nanosec_fraction = [0u8; 4];
     cursor.read_exact(&mut nanosec_fraction)?;
-    let metadata_changed = Utc.timestamp_opt(
+    let metadata_changed = NaiveDateTime::from_timestamp_opt(
         u32::from_be_bytes(metadata_changed_secs) as i64,
         u32::from_be_bytes(nanosec_fraction),
-    );
-    dbg!(metadata_changed);
+    )
+    .with_context(|| {
+        format!(
+            "Invalid timestamp {:?} {:?}",
+            metadata_changed_secs, nanosec_fraction
+        )
+    })?;
 
     let mut data_changed_secs = [0u8; 4];
     cursor.read_exact(&mut data_changed_secs)?;
     let mut nanosec_fraction = [0u8; 4];
     cursor.read_exact(&mut nanosec_fraction)?;
-    let data_changed = Utc.timestamp_opt(
+    let data_changed = NaiveDateTime::from_timestamp_opt(
         u32::from_be_bytes(data_changed_secs) as i64,
         u32::from_be_bytes(nanosec_fraction),
-    );
-    dbg!(data_changed);
+    )
+    .with_context(|| {
+        format!(
+            "Invalid timestamp {:?} {:?}",
+            metadata_changed_secs, nanosec_fraction
+        )
+    })?;
 
     let mut dev = [0u8; 4];
     cursor.read_exact(&mut dev)?;
     let dev = u32::from_be_bytes(dev);
-    dbg!(dev);
 
     let mut ino = [0u8; 4];
     cursor.read_exact(&mut ino)?;
     let ino = u32::from_be_bytes(ino);
-    dbg!(ino);
 
     let mut mode = [0u8; 4];
     cursor.read_exact(&mut mode)?;
     let mode = u32::from_be_bytes(mode) & 65535;
     let mode_type = ModeType::try_from(mode >> 12)?;
-    dbg!(mode_type);
     let user_permissions = (mode >> 6) & 7;
-    dbg!(user_permissions);
     let group_permissions = (mode >> 3) & 7;
-    dbg!(group_permissions);
     let other_permissions = mode & 7;
-    dbg!(other_permissions);
 
     let mut uid = [0u8; 4];
     cursor.read_exact(&mut uid)?;
     let uid = u32::from_be_bytes(uid);
-    dbg!(uid);
 
     let mut gid = [0u8; 4];
     cursor.read_exact(&mut gid)?;
     let gid = u32::from_be_bytes(gid);
-    dbg!(gid);
 
     let mut file_size = [0u8; 4];
     cursor.read_exact(&mut file_size)?;
     let file_size = u32::from_be_bytes(file_size);
-    dbg!(file_size);
 
     let mut hash = [0u8; 20];
     cursor.read_exact(&mut hash)?;
@@ -136,19 +158,15 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: Version) -> Result<()>
     let flags = u16::from_be_bytes(flags);
 
     let assume_valid = flags >> 15 != 0;
-    dbg!(assume_valid);
 
     let extended = flags >> 14 != 0;
-    dbg!(extended);
     if matches!(version, Version::Two) {
         assert_eq!(extended, false)
     }
 
     let stage = (flags >> 13) & 12;
-    dbg!(stage);
 
     let name_length = flags & 4095;
-    dbg!(name_length);
 
     let mut name = Vec::new();
     let read_name_length = cursor.read_until(0u8, &mut name)?;
@@ -156,9 +174,25 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: Version) -> Result<()>
     name.remove(name.len() - 1);
 
     let name = String::from_utf8(name)?;
-    dbg!(name);
 
-    Ok(())
+    Ok(IndexEntry {
+        metadata_changed,
+        data_changed,
+        dev,
+        ino,
+        mode_type,
+        user_permissions,
+        group_permissions,
+        other_permissions,
+        uid,
+        gid,
+        file_size,
+        assume_valid,
+        extended,
+        stage,
+        name_length,
+        name,
+    })
 }
 
 #[cfg(test)]
