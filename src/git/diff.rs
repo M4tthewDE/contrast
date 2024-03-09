@@ -1,6 +1,6 @@
 // https://blog.jcoglan.com/2017/02/12/the-myers-diff-algorithm-part-1/
 
-use std::io::{Cursor, Read};
+use std::io::{BufRead, Cursor, Read};
 
 use anyhow::{anyhow, Result};
 use chrono::{TimeZone, Utc};
@@ -106,9 +106,12 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: Version) -> Result<()>
     let mode = u32::from_be_bytes(mode) & 65535;
     let mode_type = ModeType::try_from(mode >> 12)?;
     dbg!(mode_type);
-    let permission = mode & 511;
-    // FIXME: this permission value is not valid
-    dbg!(permission);
+    let user_permissions = (mode >> 6) & 7;
+    dbg!(user_permissions);
+    let group_permissions = (mode >> 3) & 7;
+    dbg!(group_permissions);
+    let other_permissions = mode & 7;
+    dbg!(other_permissions);
 
     let mut uid = [0u8; 4];
     cursor.read_exact(&mut uid)?;
@@ -131,10 +134,11 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: Version) -> Result<()>
     let mut flags = [0u8; 2];
     cursor.read_exact(&mut flags)?;
     let flags = u16::from_be_bytes(flags);
+
     let assume_valid = flags >> 15 != 0;
     dbg!(assume_valid);
 
-    let extended = (flags >> 14) & 2 != 0;
+    let extended = (flags >> 14) != 0;
     dbg!(extended);
     if matches!(version, Version::Two) {
         assert_eq!(extended, false)
@@ -145,6 +149,13 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: Version) -> Result<()>
 
     let name_length = flags & 4095;
     dbg!(name_length);
+
+    let mut name = Vec::new();
+    let read_name_length = cursor.read_until(0u8, &mut name)?;
+    dbg!(read_name_length);
+
+    let name = String::from_utf8(name)?;
+    dbg!(name);
 
     Ok(())
 }
