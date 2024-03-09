@@ -9,11 +9,11 @@ struct DiffLine {
     text: String,
 }
 
-fn calculate_diff(old: &str, new: &str) -> Result<Vec<DiffEdit>> {
-    let old_lines = get_lines(old);
-    let new_lines = get_lines(new);
+fn calculate_diff(a: &str, b: &str) -> Result<Vec<DiffEdit>> {
+    let a_lines = get_lines(a);
+    let b_lines = get_lines(b);
 
-    Myers::new(old_lines, new_lines).diff()
+    Myers::new(a_lines, b_lines).diff()
 }
 
 fn get_lines(content: &str) -> Vec<DiffLine> {
@@ -36,45 +36,45 @@ enum EditType {
 
 struct DiffEdit {
     typ: EditType,
-    old_line: Option<DiffLine>,
-    new_line: Option<DiffLine>,
+    a_line: Option<DiffLine>,
+    b_line: Option<DiffLine>,
 }
 
 impl DiffEdit {
-    fn new(typ: EditType, old_line: Option<DiffLine>, new_line: Option<DiffLine>) -> DiffEdit {
+    fn new(typ: EditType, a_line: Option<DiffLine>, b_line: Option<DiffLine>) -> DiffEdit {
         DiffEdit {
             typ,
-            old_line,
-            new_line,
+            a_line,
+            b_line,
         }
     }
 }
 
 struct Myers {
-    old: Vec<DiffLine>,
-    new: Vec<DiffLine>,
+    a: Vec<DiffLine>,
+    b: Vec<DiffLine>,
 }
 
 impl Myers {
-    fn new(old: Vec<DiffLine>, new: Vec<DiffLine>) -> Myers {
-        Myers { old, new }
+    fn new(a: Vec<DiffLine>, b: Vec<DiffLine>) -> Myers {
+        Myers { a, b }
     }
 
     fn diff(&self) -> Result<Vec<DiffEdit>> {
         let mut diff = Vec::new();
 
         for (prev_x, prev_y, x, y) in self.backtrack()? {
-            let (old_line, new_line) = (
-                get(&self.old, prev_x).context("diff")?,
-                get(&self.new, prev_y).context("diff")?,
+            let (a_line, b_line) = (
+                get(&self.a, prev_x).context("diff")?,
+                get(&self.b, prev_y).context("diff")?,
             );
 
             let edit = if x == prev_x {
-                DiffEdit::new(EditType::Ins, None, Some(new_line))
+                DiffEdit::new(EditType::Ins, None, Some(b_line))
             } else if y == prev_y {
-                DiffEdit::new(EditType::Del, Some(new_line), None)
+                DiffEdit::new(EditType::Del, Some(b_line), None)
             } else {
-                DiffEdit::new(EditType::Eql, Some(old_line), Some(new_line))
+                DiffEdit::new(EditType::Eql, Some(a_line), Some(b_line))
             };
 
             diff.insert(0, edit);
@@ -84,7 +84,7 @@ impl Myers {
     }
 
     fn shortest_edit(&self) -> Result<Vec<Vec<isize>>> {
-        let (n, m) = (self.old.len() as isize, self.new.len() as isize);
+        let (n, m) = (self.a.len() as isize, self.b.len() as isize);
         let max = n + m;
 
         let mut v = vec![0 as isize; 2 * max as usize + 1];
@@ -108,8 +108,8 @@ impl Myers {
 
                 while x < n
                     && y < m
-                    && get(&self.old, x).context("shortest_edit")?.text
-                        == get(&self.new, y).context("shortest_edit")?.text
+                    && get(&self.a, x).context("shortest_edit")?.text
+                        == get(&self.b, y).context("shortest_edit")?.text
                 {
                     x = x + 1;
                     y = y + 1;
@@ -127,7 +127,7 @@ impl Myers {
     }
 
     fn backtrack(&self) -> Result<Vec<(isize, isize, isize, isize)>> {
-        let (mut x, mut y) = (self.old.len() as isize, self.new.len() as isize);
+        let (mut x, mut y) = (self.a.len() as isize, self.b.len() as isize);
 
         let mut res = Vec::new();
         for (d, v) in self.shortest_edit()?.iter().enumerate().rev() {
