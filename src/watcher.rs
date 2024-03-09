@@ -48,6 +48,7 @@ pub fn run_watcher(
 
     Ok(())
 }
+
 fn get_gitignore(path: &Path) -> Result<Gitignore, Error> {
     puffin::profile_function!();
     let (gitignore, error) = Gitignore::new(path.join(".gitignore"));
