@@ -13,8 +13,7 @@ fn calculate_diff(old: &str, new: &str) -> Result<Vec<DiffEdit>> {
     let old_lines = get_lines(old);
     let new_lines = get_lines(new);
 
-    let meyers = Meyers::new(old_lines, new_lines);
-    meyers.diff()
+    Myers::new(old_lines, new_lines).diff()
 }
 
 fn get_lines(content: &str) -> Vec<DiffLine> {
@@ -51,21 +50,24 @@ impl DiffEdit {
     }
 }
 
-struct Meyers {
+struct Myers {
     old: Vec<DiffLine>,
     new: Vec<DiffLine>,
 }
 
-impl Meyers {
-    fn new(old: Vec<DiffLine>, new: Vec<DiffLine>) -> Meyers {
-        Meyers { old, new }
+impl Myers {
+    fn new(old: Vec<DiffLine>, new: Vec<DiffLine>) -> Myers {
+        Myers { old, new }
     }
 
     fn diff(&self) -> Result<Vec<DiffEdit>> {
         let mut diff = Vec::new();
 
         for (prev_x, prev_y, x, y) in self.backtrack()? {
-            let (old_line, new_line) = (get(&self.old, prev_x)?, get(&self.new, prev_y)?);
+            let (old_line, new_line) = (
+                get(&self.old, prev_x).context("diff")?,
+                get(&self.new, prev_y).context("diff")?,
+            );
 
             let edit = if x == prev_x {
                 DiffEdit::new(EditType::Ins, None, Some(new_line))
@@ -89,23 +91,31 @@ impl Meyers {
         v[1] = 0;
         let mut trace = Vec::new();
 
-        for d in 0..max as isize {
+        for d in 0..=max as isize {
             trace.push(v.clone());
-            for k in (-d..d).step_by(2) {
-                let mut x = if k == -d && (k != d && get(&v, k - 1)? < get(&v, k + 1)?) {
-                    get(&v, k + 1)?
+            for k in (-d..=d).step_by(2) {
+                let mut x = if k == -d
+                    || (k != d
+                        && get(&v, k - 1).context("shortest_edit")?
+                            < get(&v, k + 1).context("shortest_edit")?)
+                {
+                    get(&v, k + 1).context("shortest_edit")?
                 } else {
-                    get(&v, k - 1)? + 1
+                    get(&v, k - 1).context("shortest_edit")? + 1
                 };
 
                 let mut y = x - k;
 
-                while x < n && y < m && get(&self.old, x)?.text == get(&self.new, y)?.text {
+                while x < n
+                    && y < m
+                    && get(&self.old, x).context("shortest_edit")?.text
+                        == get(&self.new, y).context("shortest_edit")?.text
+                {
                     x = x + 1;
                     y = y + 1;
                 }
 
-                set(&mut v, k, x)?;
+                set(&mut v, k, x);
 
                 if x >= n && y >= m {
                     return Ok(trace);
@@ -124,17 +134,23 @@ impl Meyers {
             let d = d as isize;
             let k = x - y;
 
-            let prev_k = if k == -d || (k != d && get(&v, k - 1)? < get(&v, k + 1)?) {
+            let prev_k = if k == -d
+                || (k != d
+                    && get(&v, k - 1).context("backtrack")?
+                        < get(&v, k + 1).context("backtrack")?)
+            {
                 k + 1
             } else {
                 k - 1
             };
 
-            let prev_x = get(&v, prev_k)?;
+            let prev_x = get(&v, prev_k).context("backtrack")?;
             let prev_y = prev_x - prev_k;
 
             while x > prev_x && y > prev_y {
                 res.push((x - 1, y - 1, x, y));
+                x = x - 1;
+                y = y - 1;
             }
 
             if d > 0 {
@@ -161,15 +177,14 @@ fn get<T: Clone>(vec: &Vec<T>, index: isize) -> Result<T> {
     }
 }
 
-fn set<T>(vec: &mut Vec<T>, index: isize, value: T) -> Result<()> {
+fn set<T>(vec: &mut Vec<T>, index: isize, value: T) {
     let len = vec.len() as isize;
     let actual_index = if index < 0 { len + index } else { index };
 
     if actual_index >= 0 && actual_index < len {
         vec[actual_index as usize] = value;
-        Ok(())
     } else {
-        Err(anyhow!("invalid vector access"))
+        panic!("invalid vector access");
     }
 }
 
