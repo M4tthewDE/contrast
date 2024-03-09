@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use anyhow::{anyhow, Context, Result};
 
 // Heavily inspired by:
@@ -7,6 +9,12 @@ use anyhow::{anyhow, Context, Result};
 struct DiffLine {
     number: usize,
     text: String,
+}
+
+impl Display for DiffLine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{} {}", self.number, self.text)
+    }
 }
 
 fn calculate_diff(a: &str, b: &str) -> Result<Vec<DiffEdit>> {
@@ -40,8 +48,23 @@ struct DiffEdit {
     b_line: Option<DiffLine>,
 }
 
+impl Display for DiffEdit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.typ {
+            EditType::Ins => write!(f, "I {}", self.b_line.clone().unwrap()),
+            EditType::Del => write!(f, "D {}", self.a_line.clone().unwrap()),
+            EditType::Eql => write!(f, "  {}", self.a_line.clone().unwrap()),
+        }
+    }
+}
+
 impl DiffEdit {
     fn new(typ: EditType, a_line: Option<DiffLine>, b_line: Option<DiffLine>) -> DiffEdit {
+        match typ {
+            EditType::Ins => assert!(b_line.is_some()),
+            EditType::Del => assert!(a_line.is_some()),
+            EditType::Eql => assert!(a_line.is_some() && b_line.is_some()),
+        }
         DiffEdit {
             typ,
             a_line,
@@ -64,17 +87,14 @@ impl Myers {
         let mut diff = Vec::new();
 
         for (prev_x, prev_y, x, y) in self.backtrack()? {
-            let (a_line, b_line) = (
-                get(&self.a, prev_x).context("diff")?,
-                get(&self.b, prev_y).context("diff")?,
-            );
+            let (a_line, b_line) = (get(&self.a, prev_x).ok(), get(&self.b, prev_y).ok());
 
             let edit = if x == prev_x {
-                DiffEdit::new(EditType::Ins, None, Some(b_line))
+                DiffEdit::new(EditType::Ins, None, b_line)
             } else if y == prev_y {
-                DiffEdit::new(EditType::Del, Some(b_line), None)
+                DiffEdit::new(EditType::Del, a_line, None)
             } else {
-                DiffEdit::new(EditType::Eql, Some(a_line), Some(b_line))
+                DiffEdit::new(EditType::Eql, a_line, b_line)
             };
 
             diff.insert(0, edit);
@@ -88,7 +108,6 @@ impl Myers {
         let max = n + m;
 
         let mut v = vec![0 as isize; 2 * max as usize + 1];
-        v[1] = 0;
         let mut trace = Vec::new();
 
         for d in 0..=max as isize {
@@ -111,8 +130,8 @@ impl Myers {
                     && get(&self.a, x).context("shortest_edit")?.text
                         == get(&self.b, y).context("shortest_edit")?.text
                 {
-                    x = x + 1;
-                    y = y + 1;
+                    x += 1;
+                    y += 1;
                 }
 
                 set(&mut v, k, x);
@@ -194,11 +213,14 @@ mod tests {
 
     #[test]
     fn test_calculate_diff() {
-        let old = include_str!("../../tests/data/old.yml");
-        let new = include_str!("../../tests/data/new.yml");
+        let old = include_str!("../../tests/data/a");
+        let new = include_str!("../../tests/data/b");
 
         let diff = calculate_diff(old, new).unwrap();
-        dbg!(diff.len());
+        dbg!(&diff.len());
+        for d in diff {
+            dbg!(format!("{}", d));
+        }
         todo!("implement");
     }
 }
