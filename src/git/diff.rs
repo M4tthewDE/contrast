@@ -28,7 +28,7 @@ fn parse_index_file(bytes: &[u8]) -> Result<()> {
     let index_entry_num = u32::from_be_bytes(index_entry_num);
     dbg!(index_entry_num);
 
-    parse_index_entry(&mut cursor)?;
+    parse_index_entry(&mut cursor, version)?;
     todo!();
 }
 
@@ -52,7 +52,7 @@ impl TryFrom<u32> for ModeType {
     }
 }
 
-fn parse_index_entry(cursor: &mut Cursor<&[u8]>) -> Result<()> {
+fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: u32) -> Result<()> {
     let mut metadata_changed_secs = [0u8; 4];
     cursor.read_exact(&mut metadata_changed_secs)?;
     let mut nanosec_fraction = [0u8; 4];
@@ -109,7 +109,24 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>) -> Result<()> {
 
     let mut hash = [0u8; 5];
     cursor.read_exact(&mut hash)?;
-    dbg!(hash);
+
+    let mut flags = [0u8; 2];
+    cursor.read_exact(&mut flags)?;
+    let flags = u16::from_be_bytes(flags);
+    let assume_valid = flags >> 15 != 0;
+    dbg!(assume_valid);
+
+    let extended = (flags >> 14) & 2 != 0;
+    dbg!(extended);
+    if version == 2 {
+        assert_eq!(extended, false)
+    }
+
+    let stage = (flags >> 13) & 12;
+    dbg!(stage);
+
+    let name_length = flags & 4095;
+    dbg!(name_length);
 
     Ok(())
 }
