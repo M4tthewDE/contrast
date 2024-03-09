@@ -216,7 +216,7 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: &Version) -> Result<In
 
 #[cfg(test)]
 mod tests {
-    use crate::git::diff::{ModeType, Version};
+    use crate::git::index::{ModeType, Version};
 
     use super::parse_index_file;
 
