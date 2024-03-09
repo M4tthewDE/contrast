@@ -1,5 +1,3 @@
-// https://blog.jcoglan.com/2017/02/12/the-myers-diff-algorithm-part-1/
-
 use std::io::{BufRead, Cursor, Read};
 
 use anyhow::{anyhow, Context, Result};
