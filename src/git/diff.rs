@@ -17,11 +17,46 @@ impl Display for DiffLine {
     }
 }
 
-fn calculate_diff(a: &str, b: &str) -> Result<Vec<DiffEdit>> {
+#[derive(Debug)]
+struct DiffStats {
+    insertions: usize,
+    deletions: usize,
+}
+
+impl DiffStats {
+    fn new(edits: &Vec<DiffEdit>) -> DiffStats {
+        let mut insertions = 0;
+        let mut deletions = 0;
+
+        for edit in edits {
+            if matches!(edit.typ, EditType::Ins) {
+                insertions += 1;
+            }
+            if matches!(edit.typ, EditType::Del) {
+                deletions += 1;
+            }
+        }
+
+        DiffStats {
+            insertions,
+            deletions,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Diff {
+    edits: Vec<DiffEdit>,
+    stats: DiffStats,
+}
+
+fn calculate_diff(a: &str, b: &str) -> Result<Diff> {
     let a_lines = get_lines(a);
     let b_lines = get_lines(b);
+    let edits = Myers::new(a_lines, b_lines).diff()?;
+    let stats = DiffStats::new(&edits);
 
-    Myers::new(a_lines, b_lines).diff()
+    Ok(Diff { edits, stats })
 }
 
 fn get_lines(content: &str) -> Vec<DiffLine> {
@@ -339,7 +374,9 @@ mod tests {
         ];
 
         let diff = calculate_diff(old, new).unwrap();
-        assert_eq!(diff.len(), expected.len());
-        assert_eq!(diff, expected);
+        assert_eq!(diff.edits.len(), expected.len());
+        assert_eq!(diff.edits, expected);
+        assert_eq!(diff.stats.insertions, 2);
+        assert_eq!(diff.stats.deletions, 3);
     }
 }
