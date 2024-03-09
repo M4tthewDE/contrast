@@ -128,7 +128,7 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: Version) -> Result<()>
     let file_size = u32::from_be_bytes(file_size);
     dbg!(file_size);
 
-    let mut hash = [0u8; 5];
+    let mut hash = [0u8; 20];
     cursor.read_exact(&mut hash)?;
 
     let mut flags = [0u8; 2];
@@ -138,7 +138,7 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: Version) -> Result<()>
     let assume_valid = flags >> 15 != 0;
     dbg!(assume_valid);
 
-    let extended = (flags >> 14) != 0;
+    let extended = flags >> 14 != 0;
     dbg!(extended);
     if matches!(version, Version::Two) {
         assert_eq!(extended, false)
@@ -152,7 +152,8 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: Version) -> Result<()>
 
     let mut name = Vec::new();
     let read_name_length = cursor.read_until(0u8, &mut name)?;
-    dbg!(read_name_length);
+    assert_eq!(read_name_length - 1, name_length.into());
+    name.remove(name.len() - 1);
 
     let name = String::from_utf8(name)?;
     dbg!(name);
