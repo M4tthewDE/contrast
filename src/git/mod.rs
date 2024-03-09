@@ -7,10 +7,11 @@ use stats::Stats;
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 pub mod commit;
-mod diff;
+pub mod diff;
 mod header;
 mod index;
 mod line;
+mod myers;
 pub mod stats;
 
 #[derive(Debug, Clone)]
