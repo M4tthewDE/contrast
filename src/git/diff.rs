@@ -25,8 +25,14 @@ impl TryFrom<u32> for Version {
     }
 }
 
+#[derive(Debug)]
+struct IndexFile {
+    version: Version,
+    index_entries: Vec<IndexEntry>,
+}
+
 // https://git-scm.com/docs/index-format
-fn parse_index_file(bytes: &[u8]) -> Result<()> {
+fn parse_index_file(bytes: &[u8]) -> Result<IndexFile> {
     let mut cursor = Cursor::new(bytes);
     let mut signature = [0u8; 4];
     cursor.read_exact(&mut signature)?;
@@ -37,18 +43,23 @@ fn parse_index_file(bytes: &[u8]) -> Result<()> {
     let mut version = [0u8; 4];
     cursor.read_exact(&mut version)?;
     let version = Version::try_from(u32::from_be_bytes(version))?;
-    dbg!(&version);
 
     assert!(matches!(version, Version::Two), "only supports version 2");
 
     let mut index_entry_num = [0u8; 4];
     cursor.read_exact(&mut index_entry_num)?;
     let index_entry_num = u32::from_be_bytes(index_entry_num);
-    dbg!(index_entry_num);
 
-    let index_entry = parse_index_entry(&mut cursor, version)?;
-    dbg!(index_entry);
-    todo!();
+    let mut index_entries = Vec::new();
+    for _ in 0..index_entry_num {
+        let index_entry = parse_index_entry(&mut cursor, &version)?;
+        index_entries.push(index_entry);
+    }
+
+    Ok(IndexFile {
+        version,
+        index_entries,
+    })
 }
 
 #[derive(Debug)]
@@ -91,7 +102,7 @@ struct IndexEntry {
     name: String,
 }
 
-fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: Version) -> Result<IndexEntry> {
+fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: &Version) -> Result<IndexEntry> {
     let mut metadata_changed_secs = [0u8; 4];
     cursor.read_exact(&mut metadata_changed_secs)?;
     let mut nanosec_fraction = [0u8; 4];
@@ -165,7 +176,6 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: Version) -> Result<Ind
     }
 
     let stage = (flags >> 13) & 12;
-
     let name_length = flags & 4095;
 
     let mut name = Vec::new();
@@ -174,6 +184,15 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: Version) -> Result<Ind
     name.remove(name.len() - 1);
 
     let name = String::from_utf8(name)?;
+
+    loop {
+        let mut buf = [0u8; 1];
+        cursor.read_exact(&mut buf)?;
+        if buf[0] != 0u8 {
+            cursor.set_position(cursor.position() - 1);
+            break;
+        }
+    }
 
     Ok(IndexEntry {
         metadata_changed,
@@ -197,11 +216,37 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: Version) -> Result<Ind
 
 #[cfg(test)]
 mod tests {
+    use crate::git::diff::{ModeType, Version};
+
     use super::parse_index_file;
 
     #[test]
     fn test_parse_index() {
         let bytes = include_bytes!("../../tests/data/index");
-        parse_index_file(bytes).unwrap();
+        let index_file = parse_index_file(bytes).unwrap();
+
+        assert!(matches!(index_file.version, Version::Two));
+        assert_eq!(index_file.index_entries.len(), 26);
+        dbg!(&index_file.index_entries[0]);
+        assert_eq!(index_file.index_entries[0].dev, 2051);
+        assert_eq!(index_file.index_entries[0].ino, 15886105);
+        assert!(matches!(
+            index_file.index_entries[0].mode_type,
+            ModeType::RegularFile
+        ));
+        assert_eq!(index_file.index_entries[0].user_permissions, 6);
+        assert_eq!(index_file.index_entries[0].group_permissions, 4);
+        assert_eq!(index_file.index_entries[0].other_permissions, 4);
+        assert_eq!(index_file.index_entries[0].uid, 1000);
+        assert_eq!(index_file.index_entries[0].gid, 1000);
+        assert_eq!(index_file.index_entries[0].file_size, 388);
+        assert_eq!(index_file.index_entries[0].assume_valid, false);
+        assert_eq!(index_file.index_entries[0].extended, false);
+        assert_eq!(index_file.index_entries[0].stage, 0);
+        assert_eq!(index_file.index_entries[0].name_length, 26);
+        assert_eq!(
+            index_file.index_entries[0].name,
+            ".github/workflows/rust.yml"
+        );
     }
 }
