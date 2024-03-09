@@ -5,6 +5,26 @@ use std::io::{Cursor, Read};
 use anyhow::{anyhow, Result};
 use chrono::{TimeZone, Utc};
 
+#[derive(Debug, Clone)]
+enum Version {
+    Two,
+    Three,
+    Four,
+}
+
+impl TryFrom<u32> for Version {
+    type Error = anyhow::Error;
+
+    fn try_from(value: u32) -> std::result::Result<Self, Self::Error> {
+        match value {
+            2 => Ok(Self::Two),
+            3 => Ok(Self::Three),
+            4 => Ok(Self::Four),
+            _ => Err(anyhow!("Invalid version {value}")),
+        }
+    }
+}
+
 // https://git-scm.com/docs/index-format
 fn parse_index_file(bytes: &[u8]) -> Result<()> {
     let mut cursor = Cursor::new(bytes);
@@ -16,12 +36,10 @@ fn parse_index_file(bytes: &[u8]) -> Result<()> {
 
     let mut version = [0u8; 4];
     cursor.read_exact(&mut version)?;
-    let version = u32::from_be_bytes(version);
-    if ![2, 3, 4].contains(&version) {
-        return Err(anyhow!("Invalid version: {:?}", version));
-    }
+    let version = Version::try_from(u32::from_be_bytes(version))?;
+    dbg!(&version);
 
-    dbg!(version);
+    assert!(matches!(version, Version::Two), "only supports version 2");
 
     let mut index_entry_num = [0u8; 4];
     cursor.read_exact(&mut index_entry_num)?;
@@ -52,7 +70,7 @@ impl TryFrom<u32> for ModeType {
     }
 }
 
-fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: u32) -> Result<()> {
+fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: Version) -> Result<()> {
     let mut metadata_changed_secs = [0u8; 4];
     cursor.read_exact(&mut metadata_changed_secs)?;
     let mut nanosec_fraction = [0u8; 4];
@@ -118,7 +136,7 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: u32) -> Result<()> {
 
     let extended = (flags >> 14) & 2 != 0;
     dbg!(extended);
-    if version == 2 {
+    if matches!(version, Version::Two) {
         assert_eq!(extended, false)
     }
 
