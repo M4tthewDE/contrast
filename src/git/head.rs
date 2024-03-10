@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use flate2::read::ZlibDecoder;
 use std::{
+    fmt::Display,
     fs,
     io::{BufRead, Cursor, Read},
     path::PathBuf,
@@ -60,32 +61,65 @@ fn get_commit(repo: &PathBuf, hash: &str) -> Result<()> {
 const NUL: u8 = 0;
 const SPACE: u8 = 32;
 
-fn parse_tree(bytes: &[u8]) -> Result<()> {
+#[derive(Debug)]
+struct TreeEntry {
+    mode: String,
+    name: String,
+    hash: String,
+}
+
+impl TreeEntry {
+    fn new(mode: String, name: String, hash: String) -> TreeEntry {
+        TreeEntry { mode, name, hash }
+    }
+}
+
+impl Display for TreeEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}    {}", self.mode, self.hash, self.name)
+    }
+}
+
+fn parse_tree(bytes: &[u8]) -> Result<Vec<TreeEntry>> {
     let mut decoder = ZlibDecoder::new(Cursor::new(bytes));
     let mut bytes = Vec::new();
     decoder.read_to_end(&mut bytes)?;
 
     let mut cursor = Cursor::new(bytes);
-    let mut trash = Vec::new();
-    cursor.read_until(NUL, &mut trash)?;
+    let mut tree_literal = [0u8; 4];
+    cursor.read_exact(&mut tree_literal)?;
+    assert_eq!(String::from_utf8(tree_literal.to_vec())?, "tree");
+    cursor.set_position(cursor.position() + 1);
 
-    let mut mode = Vec::new();
-    cursor.read_until(SPACE, &mut mode)?;
-    mode.remove(mode.len() - 1);
-    let mode = String::from_utf8(mode)?;
-    dbg!(mode);
+    let mut length = Vec::new();
+    cursor.read_until(NUL, &mut length)?;
+    length.remove(length.len() - 1);
+    let length_str = String::from_utf8(length)?;
+    let length = length_str.parse::<u64>()? + length_str.len() as u64 + 6;
 
-    let mut name = Vec::new();
-    cursor.read_until(NUL, &mut name)?;
-    name.remove(name.len() - 1);
-    let name = String::from_utf8(name)?;
-    dbg!(name);
+    let mut entries = Vec::new();
+    loop {
+        let mut mode = Vec::new();
+        cursor.read_until(SPACE, &mut mode)?;
+        mode.remove(mode.len() - 1);
+        let mode = String::from_utf8(mode)?;
 
-    let mut hash = [0u8; 20];
-    cursor.read_exact(&mut hash)?;
-    let hash: String = hash.iter().map(|b| format!("{:02x}", b)).collect();
-    dbg!(hash);
-    todo!();
+        let mut name = Vec::new();
+        cursor.read_until(NUL, &mut name)?;
+        name.remove(name.len() - 1);
+        let name = String::from_utf8(name)?;
+
+        let mut hash = [0u8; 20];
+        cursor.read_exact(&mut hash)?;
+        let hash: String = hash.iter().map(|b| format!("{:02x}", b)).collect();
+
+        entries.push(TreeEntry::new(mode, name, hash));
+        if cursor.position() == length {
+            break;
+        }
+    }
+
+    Ok(entries)
 }
 
 #[cfg(test)]
@@ -126,6 +160,10 @@ mod tests {
     #[test]
     fn test_parse_tree() {
         let bytes = include_bytes!("../../tests/data/tree");
-        let tree = parse_tree(bytes).unwrap();
+        let entries = parse_tree(bytes).unwrap();
+        for entry in entries {
+            println!("{}", entry);
+        }
+        todo!();
     }
 }
