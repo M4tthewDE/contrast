@@ -8,6 +8,7 @@ use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 pub mod commit;
 pub mod diff;
+mod head;
 mod header;
 mod index;
 mod line;
