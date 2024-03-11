@@ -36,9 +36,21 @@ pub fn get_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
             continue;
         }
 
-        // TODO: handle new empty files
         if !blobs.contains_key(&path) {
             let new = fs::read_to_string(path.clone()).unwrap_or_default();
+
+            if new.is_empty() {
+                diffs.push(Diff {
+                    file_name: path,
+                    edits: Vec::new(),
+                    stats: DiffStats {
+                        insertions: 0,
+                        deletions: 0,
+                    },
+                });
+                continue;
+            }
+
             if let Some(diff) = calculate_diff(path, "", &new)? {
                 diffs.push(diff);
             }
