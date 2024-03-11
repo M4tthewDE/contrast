@@ -1,11 +1,14 @@
 use anyhow::{anyhow, Result};
 use flate2::read::ZlibDecoder;
 use std::{
-    fmt::Display,
+    fmt::{self, Display},
     fs,
     io::{BufRead, Cursor, Read},
     path::PathBuf,
 };
+
+const NUL: u8 = 0;
+const SPACE: u8 = 32;
 
 fn get_head(repo: &PathBuf) -> Result<String> {
     let content = fs::read_to_string(repo.join("HEAD"))?;
@@ -16,18 +19,23 @@ fn get_head(repo: &PathBuf) -> Result<String> {
         .ok_or(anyhow!("error parsing HEAD"))
 }
 
-fn get_latest_commit(repo: &PathBuf) -> Result<()> {
+#[derive(Debug)]
+pub struct Commit {
+    hash: String,
+    tree: Vec<TreeEntry>,
+}
+
+fn get_latest_commit(repo: &PathBuf) -> Result<Commit> {
     let head = get_head(repo)?;
     let raw_hash = fs::read_to_string(repo.join("refs/heads").join(head.clone()))?;
     let hash = raw_hash
         .strip_suffix("\n")
         .ok_or(anyhow!("error parsing refs/heads/{}", head))?;
 
-    let _commit = get_commit(repo, hash)?;
-    todo!();
+    get_commit(repo, hash)
 }
 
-fn get_commit(repo: &PathBuf, hash: &str) -> Result<()> {
+fn get_commit(repo: &PathBuf, hash: &str) -> Result<Commit> {
     let commit_path = repo
         .join("objects")
         .join(hash[0..2].to_owned())
@@ -38,21 +46,19 @@ fn get_commit(repo: &PathBuf, hash: &str) -> Result<()> {
     let mut commit = String::new();
     decoder.read_to_string(&mut commit)?;
 
-    let tree_hash = commit
+    let commit_hash = commit
         .split(" ")
         .nth(2)
         .map(|t| t.strip_suffix("\nparent"))
         .flatten()
         .ok_or(anyhow!("error parsing commit"))?;
 
-    let bytes = get_object(repo, tree_hash)?;
-    let entries = parse_tree(repo, &bytes)?;
+    let tree = parse_tree(repo, &get_object(repo, commit_hash)?)?;
 
-    for entry in entries {
-        println!("{}", entry);
-    }
-
-    Ok(())
+    Ok(Commit {
+        hash: commit_hash.to_string(),
+        tree,
+    })
 }
 
 fn get_object(repo: &PathBuf, hash: &str) -> Result<Vec<u8>> {
@@ -66,9 +72,6 @@ fn get_object(repo: &PathBuf, hash: &str) -> Result<Vec<u8>> {
     decoder.read_to_end(&mut bytes)?;
     Ok(bytes)
 }
-
-const NUL: u8 = 0;
-const SPACE: u8 = 32;
 
 #[derive(Debug)]
 struct TreeEntry {
@@ -103,34 +106,41 @@ impl TreeEntry {
 }
 
 impl Display for TreeEntry {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{} {}    {}", self.mode, self.hash, self.name)?;
-        for child in &self.children {
-            write!(f, "   {}", child)?;
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn format_entry(entry: &TreeEntry, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
+            let indent = "  ".repeat(depth);
+
+            if entry.blob.is_some() {
+                writeln!(
+                    f,
+                    "{}{} {} ({}) (blob data)",
+                    indent, entry.mode, entry.name, entry.hash
+                )?;
+            } else {
+                writeln!(
+                    f,
+                    "{}{} {} ({})",
+                    indent, entry.mode, entry.name, entry.hash
+                )?;
+            }
+
+            for child in &entry.children {
+                format_entry(child, f, depth + 1)?;
+            }
+
+            Ok(())
         }
 
-        Ok(())
+        format_entry(self, f, 0)
     }
 }
 
 fn parse_tree(repo: &PathBuf, bytes: &[u8]) -> Result<Vec<TreeEntry>> {
     let mut cursor = Cursor::new(bytes);
+
     let mut literal = [0u8; 4];
     cursor.read_exact(&mut literal)?;
     let literal = String::from_utf8(literal.to_vec())?;
-
-    if literal == "blob" {
-        let mut blob = Vec::new();
-        cursor.read_to_end(&mut blob)?;
-        return Ok(vec![TreeEntry::new(
-            "".to_string(),
-            "".to_string(),
-            "".to_string(),
-            Vec::new(),
-            Some(blob),
-        )]);
-    }
-
     assert_eq!(literal, "tree");
     cursor.set_position(cursor.position() + 1);
 
@@ -156,10 +166,14 @@ fn parse_tree(repo: &PathBuf, bytes: &[u8]) -> Result<Vec<TreeEntry>> {
         cursor.read_exact(&mut hash)?;
         let hash: String = hash.iter().map(|b| format!("{:02x}", b)).collect();
 
-        println!("parsing children for {}", name);
-        let children = parse_tree(repo, &get_object(repo, &hash)?)?;
-        let entry = TreeEntry::new(mode, name, hash, children, None);
-        entries.push(entry);
+        if let Ok(blob) = parse_blob(get_object(repo, &hash)?) {
+            let entry = TreeEntry::new(mode, name, hash, Vec::new(), Some(blob));
+            entries.push(entry);
+        } else {
+            let children = parse_tree(repo, &get_object(repo, &hash)?)?;
+            let entry = TreeEntry::new(mode, name, hash, children, None);
+            entries.push(entry);
+        }
 
         if cursor.position() == length {
             break;
@@ -167,6 +181,21 @@ fn parse_tree(repo: &PathBuf, bytes: &[u8]) -> Result<Vec<TreeEntry>> {
     }
 
     Ok(entries)
+}
+
+fn parse_blob(bytes: Vec<u8>) -> Result<Vec<u8>> {
+    let mut cursor = Cursor::new(bytes);
+    let mut literal = [0u8; 4];
+    cursor.read_exact(&mut literal)?;
+    let literal = String::from_utf8(literal.to_vec())?;
+
+    if literal == "blob" {
+        let mut blob = Vec::new();
+        cursor.read_to_end(&mut blob)?;
+        Ok(blob)
+    } else {
+        Err(anyhow!("not a blob"))
+    }
 }
 
 #[cfg(test)]
@@ -183,21 +212,8 @@ mod tests {
 
     #[test]
     fn test_get_latest_commit() {
-        let _commit = get_latest_commit(&PathBuf::from(".git")).unwrap();
+        let commit = get_latest_commit(&PathBuf::from(".git")).unwrap();
+        assert!(!commit.hash.is_empty());
+        assert!(!commit.tree.is_empty());
     }
-
-    /*
-    040000 tree 28dd2a88014c934e00646eb9744fdad4126e5ccd    .github
-    100644 blob ea8c4bf7f35f6f77f75d92ad8ce8349f6e81ddba    .gitignore
-    100644 blob 306778b4c5833eb760e38e007fcdb3e1f04bb175    Cargo.lock
-    100644 blob 92685634cfc62c8b7fb4eb65e54ae953ed6ce620    Cargo.toml
-    100644 blob f288702d2fa16d3cdf0035b15a9fcbc552cd88e7    LICENSE
-    100644 blob 7d7005a975cf30c19dd5f744bf8f1cf2731f0287    README.md
-    040000 tree 1f19b49b2b4df317e7911b3a4ccff32982cbbd08    src
-    040000 tree 798a3fa9e3a8fecb3c38ffa18beb07cb90295855    tests
-        */
-
-    /*
-    40000 .github(*LNdntOn\100644 .gitignoreK_ow]4nݺ100644 Cargo.lock0gxŃ>`ͳKu100644 Cargo.tomlhV4,eJSl 100644 LICENSEp-/m<5ZR͈100644 README.md}pu0Ds40000 src+ML)40000 testsy?<8ː)XU
-    */
 }
