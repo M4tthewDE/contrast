@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::Result;
+use ignore::WalkBuilder;
 
 use crate::git::head;
 
@@ -25,6 +26,24 @@ pub fn get_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
     let blobs = commit.get_blobs(project_path.to_path_buf());
 
     let mut diffs = Vec::new();
+    for result in WalkBuilder::new(project_path).hidden(false).build() {
+        let path = result?.into_path();
+        if path.starts_with(project_path.join(PathBuf::from(".git"))) {
+            continue;
+        }
+
+        if path.is_dir() {
+            continue;
+        }
+
+        if !blobs.contains_key(&path) {
+            let new = fs::read_to_string(path.clone()).unwrap_or_default();
+            if let Some(diff) = calculate_diff(path, "", &new)? {
+                diffs.push(diff);
+            }
+        }
+    }
+
     for (path, blob) in blobs {
         if let Ok(old) = String::from_utf8(blob) {
             let new = fs::read_to_string(path.clone()).unwrap_or_default();
