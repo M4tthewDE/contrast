@@ -307,7 +307,9 @@ mod tests {
         let old = include_str!("../../tests/data/a");
         let new = include_str!("../../tests/data/b");
 
-        let diff = calculate_diff(PathBuf::from("tests/data/a"), old, new).unwrap();
+        let diff = calculate_diff(PathBuf::from("tests/data/a"), old, new)
+            .unwrap()
+            .unwrap();
 
         assert_eq!(diff.edits.len(), expected.len());
         assert_eq!(diff.edits, expected);
