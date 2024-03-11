@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, fs, path::PathBuf};
 
 use anyhow::Result;
 
@@ -7,19 +7,44 @@ use super::myers::Myers;
 // Heavily inspired by:
 // https://blog.jcoglan.com/2017/02/12/the-myers-diff-algorithm-part-1/
 
-#[derive(Debug)]
-pub struct Diff {
-    edits: Vec<DiffEdit>,
-    stats: DiffStats,
+#[derive(Debug, Clone)]
+pub struct Stats {
+    pub files_changed: usize,
+    pub total_insertions: usize,
+    pub total_deletions: usize,
 }
 
-fn calculate_diff(a: &str, b: &str) -> Result<Diff> {
-    let a_lines = get_lines(a);
-    let b_lines = get_lines(b);
+pub fn get_diffs(project_path: &str) -> Result<(Vec<Diff>, Stats)> {
+    dbg!(project_path);
+    todo!();
+}
+
+#[derive(Debug, Clone)]
+pub struct Diff {
+    pub file_name: PathBuf,
+    pub edits: Vec<DiffEdit>,
+    pub stats: DiffStats,
+}
+
+impl Diff {
+    pub fn line_count(&self) -> usize {
+        return self.edits.len();
+    }
+}
+
+pub fn calculate_diff(a_path: &PathBuf, b_path: &PathBuf) -> Result<Diff> {
+    let a = fs::read_to_string(a_path)?;
+    let b = fs::read_to_string(b_path)?;
+    let a_lines = get_lines(&a);
+    let b_lines = get_lines(&b);
     let edits = Myers::new(a_lines, b_lines).diff()?;
     let stats = DiffStats::new(&edits);
 
-    Ok(Diff { edits, stats })
+    Ok(Diff {
+        file_name: a_path.clone(),
+        edits,
+        stats,
+    })
 }
 
 fn get_lines(content: &str) -> Vec<DiffLine> {
@@ -46,7 +71,7 @@ impl Display for DiffLine {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DiffStats {
     insertions: usize,
     deletions: usize,
@@ -73,7 +98,7 @@ impl DiffStats {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum EditType {
     Ins,
     Del,
@@ -98,11 +123,11 @@ impl EditType {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct DiffEdit {
-    typ: EditType,
-    a_line: Option<DiffLine>,
-    b_line: Option<DiffLine>,
+    pub typ: EditType,
+    pub a_line: Option<DiffLine>,
+    pub b_line: Option<DiffLine>,
 }
 
 impl Display for DiffEdit {
@@ -147,13 +172,12 @@ impl DiffEdit {
 #[cfg(test)]
 mod tests {
 
+    use std::path::PathBuf;
+
     use super::{calculate_diff, DiffEdit, DiffLine, EditType};
 
     #[test]
     fn test_calculate_diff() {
-        let old = include_str!("../../tests/data/a");
-        let new = include_str!("../../tests/data/b");
-
         let expected = vec![
             DiffEdit::new(
                 EditType::Del,
@@ -241,7 +265,12 @@ mod tests {
             ),
         ];
 
-        let diff = calculate_diff(old, new).unwrap();
+        let diff = calculate_diff(
+            &PathBuf::from("tests/data/a"),
+            &PathBuf::from("tests/data/b"),
+        )
+        .unwrap();
+
         assert_eq!(diff.edits.len(), expected.len());
         assert_eq!(diff.edits, expected);
         assert_eq!(diff.stats.insertions, 2);

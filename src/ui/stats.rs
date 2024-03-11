@@ -1,13 +1,13 @@
 use egui::{Color32, RichText, Ui};
 
-use crate::git::stats::Stats;
+use crate::git::diff::Stats;
 
 pub fn ui(ui: &mut Ui, stats: &Stats) {
     puffin::profile_function!();
 
     let file_changed_count = stats.files_changed;
-    let insertion_count = stats.insertions;
-    let deletion_count = stats.deletions;
+    let insertion_count = stats.total_insertions;
+    let deletion_count = stats.total_deletions;
 
     let files_richtext = match file_changed_count {
         1 => RichText::new(format!("{} file changed,", file_changed_count)).color(Color32::WHITE),

@@ -5,7 +5,11 @@ use std::{
 
 use notify::RecommendedWatcher;
 
-use crate::git::{self, commit, commit::Commit, stats::Stats, Diff};
+use crate::git::{
+    commit,
+    commit::Commit,
+    diff::{self, Diff, Stats},
+};
 
 #[derive(Default)]
 pub struct ControlData {
@@ -38,7 +42,7 @@ pub struct DiffData {
 impl DiffData {
     pub fn get_diff(&self, name: &PathBuf) -> Option<Diff> {
         for diff in &self.diffs {
-            if diff.file_name() == *name {
+            if diff.file_name == *name {
                 return Some(diff.clone());
             }
         }
@@ -74,21 +78,21 @@ impl AppData {
             .ok_or(AppDataCreationError::Parsing)?
             .to_owned();
         let (modified_diffs, modified_stats) =
-            git::get_diffs(&project_path).map_err(|_| AppDataCreationError::Parsing)?;
+            diff::get_diffs(&project_path).map_err(|_| AppDataCreationError::Parsing)?;
 
         let (staged_diffs, staged_stats) =
-            git::get_staged_diffs(&project_path).map_err(|_| AppDataCreationError::Parsing)?;
+            diff::get_diffs(&project_path).map_err(|_| AppDataCreationError::Parsing)?;
 
         let modified_diff_data = DiffData {
             diffs: modified_diffs.clone(),
             stats: modified_stats,
-            file_tree: Tree::new(modified_diffs.iter().map(|d| d.file_name()).collect()),
+            file_tree: Tree::new(modified_diffs.iter().map(|d| d.file_name.clone()).collect()),
         };
 
         let staged_diff_data = DiffData {
             diffs: staged_diffs.clone(),
             stats: staged_stats,
-            file_tree: Tree::new(staged_diffs.iter().map(|d| d.file_name()).collect()),
+            file_tree: Tree::new(staged_diffs.iter().map(|d| d.file_name.clone()).collect()),
         };
 
         let commits = commit::get_log(&project_path).map_err(|_| AppDataCreationError::Commits)?;

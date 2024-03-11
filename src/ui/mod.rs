@@ -11,9 +11,7 @@ mod code;
 mod diff_area;
 mod diff_type;
 mod files_area;
-mod line_numbers;
 pub mod log;
-mod origins;
 mod selection_area;
 mod stats;
 
