@@ -218,11 +218,11 @@ mod tests {
 
         assert_eq!(tree.id, 0);
         assert_eq!(tree.name, "");
-        assert_eq!(tree.open, true);
+        assert!(tree.open);
 
         assert_eq!(tree.nodes[0].id, 1);
         assert_eq!(tree.nodes[0].name, "src");
-        assert_eq!(tree.nodes[0].open, true);
+        assert!(tree.nodes[0].open);
         assert_eq!(
             tree.nodes[0].files,
             vec![
@@ -236,7 +236,7 @@ mod tests {
         );
         assert_eq!(tree.nodes[0].nodes[0].id, 2);
         assert_eq!(tree.nodes[0].nodes[0].name, "ui");
-        assert_eq!(tree.nodes[0].nodes[0].open, true);
+        assert!(tree.nodes[0].nodes[0].open);
         assert_eq!(
             tree.nodes[0].nodes[0].files,
             vec![File {

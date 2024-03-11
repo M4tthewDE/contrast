@@ -238,8 +238,8 @@ mod tests {
         assert_eq!(index_file.index_entries[0].uid, 1000);
         assert_eq!(index_file.index_entries[0].gid, 1000);
         assert_eq!(index_file.index_entries[0].file_size, 388);
-        assert_eq!(index_file.index_entries[0].assume_valid, false);
-        assert_eq!(index_file.index_entries[0].extended, false);
+        assert!(!index_file.index_entries[0].assume_valid);
+        assert!(!index_file.index_entries[0].extended);
         assert_eq!(index_file.index_entries[0].stage, 0);
         assert_eq!(index_file.index_entries[0].name_length, 26);
         assert_eq!(
