@@ -21,7 +21,7 @@ pub fn ui(ui: &mut Ui, diff: &Diff, start: usize, end: usize) -> Response {
             .unwrap_or_else(|| edit.b_line.clone().unwrap())
             .text;
 
-        content.push_str(&format!("{tag}  {text}\n"));
+        content.push_str(&format!("{tag}{text}\n"));
     }
 
     let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
@@ -81,7 +81,7 @@ impl LayoutHandler {
                 TextFormat::simple(FontId::new(12.0, FontFamily::Monospace), Color32::WHITE)
             };
 
-            job.append(format!("{line}\n").as_str(), 0.0, format.clone());
+            job.append(format!("{}\n", &line[1..]).as_str(), 0.0, format.clone());
         }
 
         job
