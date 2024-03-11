@@ -38,8 +38,9 @@ pub fn get_diffs(project_path: &PathBuf) -> Result<(Vec<Diff>, Stats)> {
     for (path, blob) in blobs {
         if let Ok(old) = String::from_utf8(blob) {
             let new = fs::read_to_string(path.clone())?;
-            let diff = calculate_diff(path, &old, &new)?;
-            diffs.push(diff);
+            if let Some(diff) = calculate_diff(path, &old, &new)? {
+                diffs.push(diff);
+            }
         }
     }
 
@@ -75,17 +76,20 @@ impl Diff {
 }
 
 // TODO: this should be Diff::new()
-pub fn calculate_diff(file_name: PathBuf, a: &str, b: &str) -> Result<Diff> {
+pub fn calculate_diff(file_name: PathBuf, a: &str, b: &str) -> Result<Option<Diff>> {
+    if a == b {
+        return Ok(None);
+    }
     let a_lines = get_lines(a);
     let b_lines = get_lines(b);
     let edits = Myers::new(a_lines, b_lines).diff()?;
     let stats = DiffStats::new(&edits);
 
-    Ok(Diff {
+    Ok(Some(Diff {
         file_name,
         edits,
         stats,
-    })
+    }))
 }
 
 fn get_lines(content: &str) -> Vec<DiffLine> {
