@@ -69,12 +69,6 @@ pub struct Diff {
     pub stats: DiffStats,
 }
 
-impl Diff {
-    pub fn line_count(&self) -> usize {
-        return self.edits.len();
-    }
-}
-
 // TODO: this should be Diff::new()
 pub fn calculate_diff(file_name: PathBuf, a: &str, b: &str) -> Result<Option<Diff>> {
     if a == b {
