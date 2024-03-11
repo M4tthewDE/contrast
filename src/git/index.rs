@@ -170,7 +170,7 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: &Version) -> Result<In
 
     let extended = flags >> 14 != 0;
     if matches!(version, Version::Two) {
-        assert_eq!(extended, false)
+        assert!(!extended)
     }
 
     let stage = (flags >> 13) & 12;

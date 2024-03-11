@@ -15,7 +15,7 @@ fn get_head(repo: &PathBuf) -> Result<String> {
     let content = fs::read_to_string(repo.join("HEAD"))?;
     content
         .strip_prefix("ref: refs/heads/")
-        .and_then(|h| h.strip_suffix("\n"))
+        .and_then(|h| h.strip_suffix('\n'))
         .map(|h| h.to_owned())
         .ok_or(anyhow!("error parsing HEAD"))
 }
@@ -41,7 +41,7 @@ pub fn get_latest_commit(repo: &PathBuf) -> Result<Commit> {
     let head = get_head(repo)?;
     let raw_hash = fs::read_to_string(repo.join("refs/heads").join(head.clone()))?;
     let hash = raw_hash
-        .strip_suffix("\n")
+        .strip_suffix('\n')
         .ok_or(anyhow!("error parsing refs/heads/{}", head))?;
 
     get_commit(repo, hash)
@@ -50,8 +50,8 @@ pub fn get_latest_commit(repo: &PathBuf) -> Result<Commit> {
 fn get_commit(repo: &PathBuf, hash: &str) -> Result<Commit> {
     let commit_path = repo
         .join("objects")
-        .join(hash[0..2].to_owned())
-        .join(hash[2..].to_owned());
+        .join(&hash[0..2])
+        .join(&hash[2..]);
 
     let bytes = fs::read(commit_path)?;
     let mut decoder = ZlibDecoder::new(Cursor::new(bytes));
@@ -59,10 +59,9 @@ fn get_commit(repo: &PathBuf, hash: &str) -> Result<Commit> {
     decoder.read_to_string(&mut commit)?;
 
     let commit_hash = commit
-        .split(" ")
+        .split(' ')
         .nth(2)
-        .map(|t| t.strip_suffix("\nparent"))
-        .flatten()
+        .and_then(|t| t.strip_suffix("\nparent"))
         .ok_or(anyhow!("error parsing commit"))?;
 
     let tree = parse_tree(repo, &get_object(repo, commit_hash)?)?;
@@ -76,8 +75,8 @@ fn get_commit(repo: &PathBuf, hash: &str) -> Result<Commit> {
 fn get_object(repo: &PathBuf, hash: &str) -> Result<Vec<u8>> {
     let path = repo
         .join("objects")
-        .join(hash[0..2].to_owned())
-        .join(hash[2..].to_owned());
+        .join(&hash[0..2])
+        .join(&hash[2..]);
     let bytes = fs::read(path)?;
     let mut decoder = ZlibDecoder::new(Cursor::new(bytes));
     let mut bytes = Vec::new();

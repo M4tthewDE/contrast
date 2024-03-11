@@ -1,7 +1,6 @@
-use std::{fmt::Display, fs, io, path::PathBuf};
+use std::{fmt::Display, fs, path::PathBuf};
 
-use anyhow::{anyhow, Result};
-use ignore::{Walk, WalkBuilder};
+use anyhow::Result;
 
 use crate::git::head;
 
@@ -18,19 +17,6 @@ pub struct Stats {
 }
 
 pub fn get_diffs(project_path: &PathBuf) -> Result<(Vec<Diff>, Stats)> {
-    /*
-    let mut files = Vec::new();
-    for result in WalkBuilder::new(project_path).hidden(false).build() {
-        let path = result?.into_path();
-        if path.starts_with(project_path.join(PathBuf::from(".git"))) {
-            continue;
-        }
-        files.push(path);
-    }
-    dbg!(files);
-    */
-
-    dbg!(&project_path);
     let commit = head::get_latest_commit(&project_path.join(".git/"))?;
     let blobs = commit.get_blobs(project_path.to_path_buf());
 

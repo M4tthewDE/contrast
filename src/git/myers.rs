@@ -35,10 +35,10 @@ impl Myers {
         let (n, m) = (self.a.len() as isize, self.b.len() as isize);
         let max = n + m;
 
-        let mut v = vec![0 as isize; 2 * max as usize + 1];
+        let mut v = vec![0_isize; 2 * max as usize + 1];
         let mut trace = Vec::new();
 
-        for d in 0..=max as isize {
+        for d in 0..=max {
             trace.push(v.clone());
             for k in (-d..=d).step_by(2) {
                 let mut x = if k == -d
@@ -83,21 +83,21 @@ impl Myers {
 
             let prev_k = if k == -d
                 || (k != d
-                    && get(&v, k - 1).context("backtrack")?
-                        < get(&v, k + 1).context("backtrack")?)
+                    && get(v, k - 1).context("backtrack")?
+                        < get(v, k + 1).context("backtrack")?)
             {
                 k + 1
             } else {
                 k - 1
             };
 
-            let prev_x = get(&v, prev_k).context("backtrack")?;
+            let prev_x = get(v, prev_k).context("backtrack")?;
             let prev_y = prev_x - prev_k;
 
             while x > prev_x && y > prev_y {
                 res.push((x - 1, y - 1, x, y));
-                x = x - 1;
-                y = y - 1;
+                x -= 1;
+                y -= 1;
             }
 
             if d > 0 {
