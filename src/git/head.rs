@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use flate2::read::ZlibDecoder;
 use std::{
+    collections::HashMap,
     fmt::{self, Display},
     fs,
     io::{BufRead, Cursor, Read},
@@ -25,7 +26,18 @@ pub struct Commit {
     tree: Vec<TreeEntry>,
 }
 
-fn get_latest_commit(repo: &PathBuf) -> Result<Commit> {
+impl Commit {
+    pub fn get_blobs(&self, path: PathBuf) -> HashMap<PathBuf, Vec<u8>> {
+        let mut blobs = HashMap::new();
+        for entry in &self.tree {
+            blobs.extend(entry.get_blobs(path.clone()));
+        }
+
+        blobs
+    }
+}
+
+pub fn get_latest_commit(repo: &PathBuf) -> Result<Commit> {
     let head = get_head(repo)?;
     let raw_hash = fs::read_to_string(repo.join("refs/heads").join(head.clone()))?;
     let hash = raw_hash
@@ -102,6 +114,22 @@ impl TreeEntry {
             children,
             blob,
         }
+    }
+
+    fn get_blobs(&self, path: PathBuf) -> HashMap<PathBuf, Vec<u8>> {
+        if self.children.is_empty() {
+            let mut blob = HashMap::new();
+            blob.insert(path.join(self.name.clone()), self.blob.clone().unwrap());
+            return blob;
+        }
+
+        let mut blobs = HashMap::new();
+        for child in &self.children {
+            let child_blobs = child.get_blobs(path.join(self.name.clone()));
+            blobs.extend(child_blobs);
+        }
+
+        blobs
     }
 }
 

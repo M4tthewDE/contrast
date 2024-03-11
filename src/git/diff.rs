@@ -1,6 +1,9 @@
-use std::{fmt::Display, fs, path::PathBuf};
+use std::{fmt::Display, fs, io, path::PathBuf};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+use ignore::{Walk, WalkBuilder};
+
+use crate::git::head;
 
 use super::myers::Myers;
 
@@ -14,9 +17,48 @@ pub struct Stats {
     pub total_deletions: usize,
 }
 
-pub fn get_diffs(project_path: &str) -> Result<(Vec<Diff>, Stats)> {
-    dbg!(project_path);
-    todo!();
+pub fn get_diffs(project_path: &PathBuf) -> Result<(Vec<Diff>, Stats)> {
+    /*
+    let mut files = Vec::new();
+    for result in WalkBuilder::new(project_path).hidden(false).build() {
+        let path = result?.into_path();
+        if path.starts_with(project_path.join(PathBuf::from(".git"))) {
+            continue;
+        }
+        files.push(path);
+    }
+    dbg!(files);
+    */
+
+    dbg!(&project_path);
+    let commit = head::get_latest_commit(&project_path.join(".git/"))?;
+    let blobs = commit.get_blobs(project_path.to_path_buf());
+
+    let mut diffs = Vec::new();
+    for (path, blob) in blobs {
+        if let Ok(old) = String::from_utf8(blob) {
+            let new = fs::read_to_string(path.clone())?;
+            let diff = calculate_diff(path, &old, &new)?;
+            diffs.push(diff);
+        }
+    }
+
+    let files_changed = diffs.len();
+    let mut total_insertions = 0;
+    let mut total_deletions = 0;
+    for diff in &diffs {
+        total_insertions += diff.stats.insertions;
+        total_deletions += diff.stats.deletions;
+    }
+
+    Ok((
+        diffs,
+        Stats {
+            files_changed,
+            total_insertions,
+            total_deletions,
+        },
+    ))
 }
 
 #[derive(Debug, Clone)]
@@ -32,16 +74,15 @@ impl Diff {
     }
 }
 
-pub fn calculate_diff(a_path: &PathBuf, b_path: &PathBuf) -> Result<Diff> {
-    let a = fs::read_to_string(a_path)?;
-    let b = fs::read_to_string(b_path)?;
-    let a_lines = get_lines(&a);
-    let b_lines = get_lines(&b);
+// TODO: this should be Diff::new()
+pub fn calculate_diff(file_name: PathBuf, a: &str, b: &str) -> Result<Diff> {
+    let a_lines = get_lines(a);
+    let b_lines = get_lines(b);
     let edits = Myers::new(a_lines, b_lines).diff()?;
     let stats = DiffStats::new(&edits);
 
     Ok(Diff {
-        file_name: a_path.clone(),
+        file_name,
         edits,
         stats,
     })
@@ -265,11 +306,10 @@ mod tests {
             ),
         ];
 
-        let diff = calculate_diff(
-            &PathBuf::from("tests/data/a"),
-            &PathBuf::from("tests/data/b"),
-        )
-        .unwrap();
+        let old = include_str!("../../tests/data/a");
+        let new = include_str!("../../tests/data/b");
+
+        let diff = calculate_diff(PathBuf::from("tests/data/a"), old, new).unwrap();
 
         assert_eq!(diff.edits.len(), expected.len());
         assert_eq!(diff.edits, expected);

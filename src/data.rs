@@ -73,15 +73,11 @@ pub enum AppDataCreationError {
 
 impl AppData {
     pub fn from_pathbuf(path: PathBuf) -> Result<AppData, AppDataCreationError> {
-        let project_path = path
-            .to_str()
-            .ok_or(AppDataCreationError::Parsing)?
-            .to_owned();
         let (modified_diffs, modified_stats) =
-            diff::get_diffs(&project_path).map_err(|_| AppDataCreationError::Parsing)?;
+            diff::get_diffs(&path).map_err(|_| AppDataCreationError::Parsing)?;
 
         let (staged_diffs, staged_stats) =
-            diff::get_diffs(&project_path).map_err(|_| AppDataCreationError::Parsing)?;
+            diff::get_diffs(&path).map_err(|_| AppDataCreationError::Parsing)?;
 
         let modified_diff_data = DiffData {
             diffs: modified_diffs.clone(),
@@ -95,6 +91,10 @@ impl AppData {
             file_tree: Tree::new(staged_diffs.iter().map(|d| d.file_name.clone()).collect()),
         };
 
+        let project_path = path
+            .to_str()
+            .ok_or(AppDataCreationError::Parsing)?
+            .to_owned();
         let commits = commit::get_log(&project_path).map_err(|_| AppDataCreationError::Commits)?;
 
         Ok(AppData {
