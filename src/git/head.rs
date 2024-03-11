@@ -5,13 +5,13 @@ use std::{
     fmt::{self, Display},
     fs,
     io::{BufRead, Cursor, Read},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 const NUL: u8 = 0;
 const SPACE: u8 = 32;
 
-fn get_head(repo: &PathBuf) -> Result<String> {
+fn get_head(repo: &Path) -> Result<String> {
     let content = fs::read_to_string(repo.join("HEAD"))?;
     content
         .strip_prefix("ref: refs/heads/")
@@ -22,7 +22,7 @@ fn get_head(repo: &PathBuf) -> Result<String> {
 
 #[derive(Debug)]
 pub struct Commit {
-    hash: String,
+    pub hash: String,
     tree: Vec<TreeEntry>,
 }
 
@@ -48,10 +48,7 @@ pub fn get_latest_commit(repo: &PathBuf) -> Result<Commit> {
 }
 
 fn get_commit(repo: &PathBuf, hash: &str) -> Result<Commit> {
-    let commit_path = repo
-        .join("objects")
-        .join(&hash[0..2])
-        .join(&hash[2..]);
+    let commit_path = repo.join("objects").join(&hash[0..2]).join(&hash[2..]);
 
     let bytes = fs::read(commit_path)?;
     let mut decoder = ZlibDecoder::new(Cursor::new(bytes));
@@ -72,11 +69,8 @@ fn get_commit(repo: &PathBuf, hash: &str) -> Result<Commit> {
     })
 }
 
-fn get_object(repo: &PathBuf, hash: &str) -> Result<Vec<u8>> {
-    let path = repo
-        .join("objects")
-        .join(&hash[0..2])
-        .join(&hash[2..]);
+fn get_object(repo: &Path, hash: &str) -> Result<Vec<u8>> {
+    let path = repo.join("objects").join(&hash[0..2]).join(&hash[2..]);
     let bytes = fs::read(path)?;
     let mut decoder = ZlibDecoder::new(Cursor::new(bytes));
     let mut bytes = Vec::new();

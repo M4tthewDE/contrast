@@ -1,4 +1,8 @@
-use std::{fmt::Display, fs, path::PathBuf};
+use std::{
+    fmt::Display,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Result;
 
@@ -16,14 +20,14 @@ pub struct Stats {
     pub total_deletions: usize,
 }
 
-pub fn get_diffs(project_path: &PathBuf) -> Result<(Vec<Diff>, Stats)> {
+pub fn get_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
     let commit = head::get_latest_commit(&project_path.join(".git/"))?;
     let blobs = commit.get_blobs(project_path.to_path_buf());
 
     let mut diffs = Vec::new();
     for (path, blob) in blobs {
         if let Ok(old) = String::from_utf8(blob) {
-            let new = fs::read_to_string(path.clone())?;
+            let new = fs::read_to_string(path.clone()).unwrap_or_default();
             if let Some(diff) = calculate_diff(path, &old, &new)? {
                 diffs.push(diff);
             }

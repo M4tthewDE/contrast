@@ -4,7 +4,7 @@ use anyhow::{anyhow, Context, Result};
 use chrono::NaiveDateTime;
 
 #[derive(Debug, Clone)]
-enum Version {
+pub enum Version {
     Two,
     Three,
     Four,
@@ -24,13 +24,13 @@ impl TryFrom<u32> for Version {
 }
 
 #[derive(Debug)]
-struct IndexFile {
-    version: Version,
-    index_entries: Vec<IndexEntry>,
+pub struct IndexFile {
+    pub version: Version,
+    pub index_entries: Vec<IndexEntry>,
 }
 
 // https://git-scm.com/docs/index-format
-fn parse_index_file(bytes: &[u8]) -> Result<IndexFile> {
+pub fn parse_index_file(bytes: &[u8]) -> Result<IndexFile> {
     let mut cursor = Cursor::new(bytes);
     let mut signature = [0u8; 4];
     cursor.read_exact(&mut signature)?;
@@ -61,7 +61,7 @@ fn parse_index_file(bytes: &[u8]) -> Result<IndexFile> {
 }
 
 #[derive(Debug)]
-enum ModeType {
+pub enum ModeType {
     RegularFile,
     SymbolicLink,
     GitLink,
@@ -81,23 +81,23 @@ impl TryFrom<u32> for ModeType {
 }
 
 #[derive(Debug)]
-struct IndexEntry {
-    metadata_changed: NaiveDateTime,
-    data_changed: NaiveDateTime,
-    dev: u32,
-    ino: u32,
-    mode_type: ModeType,
-    user_permissions: u32,
-    group_permissions: u32,
-    other_permissions: u32,
-    uid: u32,
-    gid: u32,
-    file_size: u32,
-    assume_valid: bool,
-    extended: bool,
-    stage: u16,
-    name_length: u16,
-    name: String,
+pub struct IndexEntry {
+    pub metadata_changed: NaiveDateTime,
+    pub data_changed: NaiveDateTime,
+    pub dev: u32,
+    pub ino: u32,
+    pub mode_type: ModeType,
+    pub user_permissions: u32,
+    pub group_permissions: u32,
+    pub other_permissions: u32,
+    pub uid: u32,
+    pub gid: u32,
+    pub file_size: u32,
+    pub assume_valid: bool,
+    pub extended: bool,
+    pub stage: u16,
+    pub name_length: u16,
+    pub name: String,
 }
 
 fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: &Version) -> Result<IndexEntry> {

@@ -83,8 +83,7 @@ impl Myers {
 
             let prev_k = if k == -d
                 || (k != d
-                    && get(v, k - 1).context("backtrack")?
-                        < get(v, k + 1).context("backtrack")?)
+                    && get(v, k - 1).context("backtrack")? < get(v, k + 1).context("backtrack")?)
             {
                 k + 1
             } else {
@@ -112,7 +111,7 @@ impl Myers {
     }
 }
 
-fn get<T: Clone>(vec: &Vec<T>, index: isize) -> Result<T> {
+fn get<T: Clone>(vec: &[T], index: isize) -> Result<T> {
     if index >= 0 {
         vec.get(index as usize)
             .cloned()
@@ -124,7 +123,7 @@ fn get<T: Clone>(vec: &Vec<T>, index: isize) -> Result<T> {
     }
 }
 
-fn set<T>(vec: &mut Vec<T>, index: isize, value: T) {
+fn set<T>(vec: &mut [T], index: isize, value: T) {
     let len = vec.len() as isize;
     let actual_index = if index < 0 { len + index } else { index };
 
