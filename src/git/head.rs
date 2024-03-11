@@ -37,7 +37,6 @@ fn get_commit(repo: &PathBuf, hash: &str) -> Result<()> {
     let mut decoder = ZlibDecoder::new(Cursor::new(bytes));
     let mut commit = String::new();
     decoder.read_to_string(&mut commit)?;
-    println!("{}", commit);
 
     let tree_hash = commit
         .split(" ")
@@ -45,17 +44,27 @@ fn get_commit(repo: &PathBuf, hash: &str) -> Result<()> {
         .map(|t| t.strip_suffix("\nparent"))
         .flatten()
         .ok_or(anyhow!("error parsing commit"))?;
-    dbg!(tree_hash);
 
-    let tree_path = repo
-        .join("objects")
-        .join(tree_hash[0..2].to_owned())
-        .join(tree_hash[2..].to_owned());
+    let bytes = get_object(repo, tree_hash)?;
+    let entries = parse_tree(repo, &bytes)?;
 
-    let bytes = fs::read(tree_path)?;
-    let tree = parse_tree(&bytes);
+    for entry in entries {
+        println!("{}", entry);
+    }
 
     Ok(())
+}
+
+fn get_object(repo: &PathBuf, hash: &str) -> Result<Vec<u8>> {
+    let path = repo
+        .join("objects")
+        .join(hash[0..2].to_owned())
+        .join(hash[2..].to_owned());
+    let bytes = fs::read(path)?;
+    let mut decoder = ZlibDecoder::new(Cursor::new(bytes));
+    let mut bytes = Vec::new();
+    decoder.read_to_end(&mut bytes)?;
+    Ok(bytes)
 }
 
 const NUL: u8 = 0;
@@ -66,29 +75,63 @@ struct TreeEntry {
     mode: String,
     name: String,
     hash: String,
+    children: Vec<TreeEntry>,
+    blob: Option<Vec<u8>>,
 }
 
 impl TreeEntry {
-    fn new(mode: String, name: String, hash: String) -> TreeEntry {
-        TreeEntry { mode, name, hash }
+    fn new(
+        mode: String,
+        name: String,
+        hash: String,
+        children: Vec<TreeEntry>,
+        blob: Option<Vec<u8>>,
+    ) -> TreeEntry {
+        let mode = if mode.len() == 5 {
+            "0".to_owned() + &mode
+        } else {
+            mode
+        };
+        TreeEntry {
+            mode,
+            name,
+            hash,
+            children,
+            blob,
+        }
     }
 }
 
 impl Display for TreeEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}    {}", self.mode, self.hash, self.name)
+        writeln!(f, "{} {}    {}", self.mode, self.hash, self.name)?;
+        for child in &self.children {
+            write!(f, "   {}", child)?;
+        }
+
+        Ok(())
     }
 }
 
-fn parse_tree(bytes: &[u8]) -> Result<Vec<TreeEntry>> {
-    let mut decoder = ZlibDecoder::new(Cursor::new(bytes));
-    let mut bytes = Vec::new();
-    decoder.read_to_end(&mut bytes)?;
-
+fn parse_tree(repo: &PathBuf, bytes: &[u8]) -> Result<Vec<TreeEntry>> {
     let mut cursor = Cursor::new(bytes);
-    let mut tree_literal = [0u8; 4];
-    cursor.read_exact(&mut tree_literal)?;
-    assert_eq!(String::from_utf8(tree_literal.to_vec())?, "tree");
+    let mut literal = [0u8; 4];
+    cursor.read_exact(&mut literal)?;
+    let literal = String::from_utf8(literal.to_vec())?;
+
+    if literal == "blob" {
+        let mut blob = Vec::new();
+        cursor.read_to_end(&mut blob)?;
+        return Ok(vec![TreeEntry::new(
+            "".to_string(),
+            "".to_string(),
+            "".to_string(),
+            Vec::new(),
+            Some(blob),
+        )]);
+    }
+
+    assert_eq!(literal, "tree");
     cursor.set_position(cursor.position() + 1);
 
     let mut length = Vec::new();
@@ -113,7 +156,11 @@ fn parse_tree(bytes: &[u8]) -> Result<Vec<TreeEntry>> {
         cursor.read_exact(&mut hash)?;
         let hash: String = hash.iter().map(|b| format!("{:02x}", b)).collect();
 
-        entries.push(TreeEntry::new(mode, name, hash));
+        println!("parsing children for {}", name);
+        let children = parse_tree(repo, &get_object(repo, &hash)?)?;
+        let entry = TreeEntry::new(mode, name, hash, children, None);
+        entries.push(entry);
+
         if cursor.position() == length {
             break;
         }
@@ -128,8 +175,6 @@ mod tests {
 
     use crate::git::head::{get_head, get_latest_commit};
 
-    use super::parse_tree;
-
     #[test]
     fn test_get_head() {
         let head = get_head(&PathBuf::from(".git")).unwrap();
@@ -137,7 +182,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_get_latest_commit() {
         let _commit = get_latest_commit(&PathBuf::from(".git")).unwrap();
     }
@@ -156,14 +200,4 @@ mod tests {
     /*
     40000 .github(*LNdntOn\100644 .gitignoreK_ow]4nݺ100644 Cargo.lock0gxŃ>`ͳKu100644 Cargo.tomlhV4,eJSl 100644 LICENSEp-/m<5ZR͈100644 README.md}pu0Ds40000 src+ML)40000 testsy?<8ː)XU
     */
-
-    #[test]
-    fn test_parse_tree() {
-        let bytes = include_bytes!("../../tests/data/tree");
-        let entries = parse_tree(bytes).unwrap();
-        for entry in entries {
-            println!("{}", entry);
-        }
-        todo!();
-    }
 }
