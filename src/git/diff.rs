@@ -36,6 +36,7 @@ pub fn get_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
             continue;
         }
 
+        // TODO: handle new empty files
         if !blobs.contains_key(&path) {
             let new = fs::read_to_string(path.clone()).unwrap_or_default();
             if let Some(diff) = calculate_diff(path, "", &new)? {
@@ -109,7 +110,7 @@ fn get_lines(content: &str) -> Vec<DiffLine> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DiffLine {
-    number: usize,
+    pub number: usize,
     pub text: String,
 }
 
@@ -162,7 +163,7 @@ impl EditType {
         }
     }
 
-    fn get_tag(&self) -> String {
+    pub fn get_tag(&self) -> String {
         match self {
             EditType::Ins => "+".to_string(),
             EditType::Del => "-".to_string(),
