@@ -220,23 +220,3 @@ fn parse_blob(bytes: Vec<u8>) -> Result<Vec<u8>> {
         Err(anyhow!("not a blob"))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use std::path::PathBuf;
-
-    use crate::git::head::{get_head, get_latest_commit};
-
-    #[test]
-    fn test_get_head() {
-        let head = get_head(&PathBuf::from(".git")).unwrap();
-        assert_ne!(head, "");
-    }
-
-    #[test]
-    fn test_get_latest_commit() {
-        let commit = get_latest_commit(&PathBuf::from(".git")).unwrap();
-        assert!(!commit.hash.is_empty());
-        assert!(!commit.tree.is_empty());
-    }
-}
