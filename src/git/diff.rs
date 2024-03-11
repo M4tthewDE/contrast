@@ -21,6 +21,16 @@ pub struct Stats {
     pub total_deletions: usize,
 }
 
+impl Stats {
+    fn new(files_changed: usize, total_insertions: usize, total_deletions: usize) -> Stats {
+        Stats {
+            files_changed,
+            total_insertions,
+            total_deletions,
+        }
+    }
+}
+
 pub fn get_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
     let commit = head::get_latest_commit(&project_path.join(".git/"))?;
     let blobs = commit.get_blobs(project_path.to_path_buf());
@@ -40,18 +50,11 @@ pub fn get_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
             let new = fs::read_to_string(path.clone()).unwrap_or_default();
 
             if new.is_empty() {
-                diffs.push(Diff {
-                    file_name: path,
-                    edits: Vec::new(),
-                    stats: DiffStats {
-                        insertions: 0,
-                        deletions: 0,
-                    },
-                });
+                diffs.push(Diff::new(path, Vec::new(), DiffStats::default()));
                 continue;
             }
 
-            if let Some(diff) = calculate_diff(path, "", &new)? {
+            if let Some(diff) = Diff::calculate(path, "", &new)? {
                 diffs.push(diff);
             }
         }
@@ -60,7 +63,7 @@ pub fn get_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
     for (path, blob) in blobs {
         if let Ok(old) = String::from_utf8(blob) {
             let new = fs::read_to_string(path.clone()).unwrap_or_default();
-            if let Some(diff) = calculate_diff(path, &old, &new)? {
+            if let Some(diff) = Diff::calculate(path, &old, &new)? {
                 diffs.push(diff);
             }
         }
@@ -76,11 +79,7 @@ pub fn get_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
 
     Ok((
         diffs,
-        Stats {
-            files_changed,
-            total_insertions,
-            total_deletions,
-        },
+        Stats::new(files_changed, total_insertions, total_deletions),
     ))
 }
 
@@ -91,21 +90,25 @@ pub struct Diff {
     pub stats: DiffStats,
 }
 
-// TODO: this should be Diff::new()
-pub fn calculate_diff(file_name: PathBuf, a: &str, b: &str) -> Result<Option<Diff>> {
-    if a == b {
-        return Ok(None);
+impl Diff {
+    pub fn new(file_name: PathBuf, edits: Vec<DiffEdit>, stats: DiffStats) -> Diff {
+        Diff {
+            file_name,
+            edits,
+            stats,
+        }
     }
-    let a_lines = get_lines(a);
-    let b_lines = get_lines(b);
-    let edits = Myers::new(a_lines, b_lines).diff()?;
-    let stats = DiffStats::new(&edits);
+    pub fn calculate(file_name: PathBuf, a: &str, b: &str) -> Result<Option<Diff>> {
+        if a == b {
+            return Ok(None);
+        }
+        let a_lines = get_lines(a);
+        let b_lines = get_lines(b);
+        let edits = Myers::new(a_lines, b_lines).diff()?;
+        let stats = DiffStats::new(&edits);
 
-    Ok(Some(Diff {
-        file_name,
-        edits,
-        stats,
-    }))
+        Ok(Some(Diff::new(file_name, edits, stats)))
+    }
 }
 
 fn get_lines(content: &str) -> Vec<DiffLine> {
@@ -132,7 +135,7 @@ impl Display for DiffLine {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct DiffStats {
     insertions: usize,
     deletions: usize,
