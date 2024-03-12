@@ -23,10 +23,7 @@ fn main() -> Result<(), eframe::Error> {
     }
     env_logger::init();
 
-    let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(320.0, 240.0)),
-        ..Default::default()
-    };
+    let options = eframe::NativeOptions::default();
 
     let path = get_initial_path();
     eframe::run_native(
