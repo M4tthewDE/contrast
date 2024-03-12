@@ -93,6 +93,7 @@ pub fn get_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
         Stats::new(files_changed, total_insertions, total_deletions),
     ))
 }
+
 pub fn get_staged_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
     let commit = head::get_latest_commit(&project_path.join(".git/"))?;
     let blobs = commit.get_blobs(project_path.to_path_buf());
@@ -102,12 +103,21 @@ pub fn get_staged_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
     for entry in index.index_entries {
         let path = project_path.join(entry.name);
 
-        if let Some(old) = blobs.get(&path) {
-            if let Ok(old) = String::from_utf8(old.to_vec()) {
-                if let Ok(new) = String::from_utf8(entry.blob) {
+        if let Ok(new) = String::from_utf8(entry.blob) {
+            if let Some(old) = blobs.get(&path) {
+                if let Ok(old) = String::from_utf8(old.to_vec()) {
                     if let Some(diff) = Diff::calculate(path.clone(), &old, &new)? {
                         diffs.push(diff);
                     }
+                }
+            } else {
+                if new.is_empty() {
+                    diffs.push(Diff::new(path, Vec::new(), DiffStats::default()));
+                    continue;
+                }
+
+                if let Some(diff) = Diff::calculate(path, "", &new)? {
+                    diffs.push(diff);
                 }
             }
         }
