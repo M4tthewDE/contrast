@@ -3,6 +3,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use anyhow::{anyhow, Result};
+
 use notify::RecommendedWatcher;
 
 use crate::git::{
@@ -40,6 +42,13 @@ pub struct DiffData {
 }
 
 impl DiffData {
+    fn new(diffs: Vec<FileDiff>, stats: Stats, file_tree: Tree) -> DiffData {
+        DiffData {
+            diffs,
+            stats,
+            file_tree,
+        }
+    }
     pub fn get_diff(&self, name: &PathBuf) -> Option<FileDiff> {
         for diff in &self.diffs {
             if diff.file_name == *name {
@@ -66,46 +75,40 @@ impl DiffType {
     }
 }
 
-pub enum AppDataCreationError {
-    Parsing,
-    Commits,
-}
-
 impl AppData {
-    pub fn from_pathbuf(path: PathBuf) -> Result<AppData, AppDataCreationError> {
-        let modified_diff = Diff::unstaged(&path).map_err(|_| AppDataCreationError::Parsing)?;
+    pub fn from_pathbuf(path: PathBuf) -> Result<AppData> {
+        let modified_diff = Diff::unstaged(&path)?;
+        let staged_diff = Diff::staged(&path)?;
 
-        let staged_diff = Diff::staged(&path).map_err(|_| AppDataCreationError::Parsing)?;
-
-        let modified_diff_data = DiffData {
-            diffs: modified_diff.file_diffs.clone(),
-            stats: modified_diff.stats,
-            file_tree: Tree::new(
+        let modified_diff_data = DiffData::new(
+            modified_diff.file_diffs.clone(),
+            modified_diff.stats,
+            Tree::new(
                 modified_diff
                     .file_diffs
                     .iter()
                     .map(|d| d.file_name.clone())
                     .collect(),
             ),
-        };
+        );
 
-        let staged_diff_data = DiffData {
-            diffs: staged_diff.file_diffs.clone(),
-            stats: staged_diff.stats,
-            file_tree: Tree::new(
+        let staged_diff_data = DiffData::new(
+            staged_diff.file_diffs.clone(),
+            staged_diff.stats,
+            Tree::new(
                 staged_diff
                     .file_diffs
                     .iter()
                     .map(|d| d.file_name.clone())
                     .collect(),
             ),
-        };
+        );
 
         let project_path = path
             .to_str()
-            .ok_or(AppDataCreationError::Parsing)?
+            .ok_or(anyhow!("invalid path {:?}", path))?
             .to_owned();
-        let commits = commit::get_log(&project_path).map_err(|_| AppDataCreationError::Commits)?;
+        let commits = commit::get_log(&project_path)?;
 
         Ok(AppData {
             project_path,
@@ -121,15 +124,6 @@ pub enum Message {
     ShowError(String),
 }
 
-#[derive(Debug, Clone)]
-pub struct Tree {
-    pub nodes: Vec<Tree>,
-    pub files: Vec<File>,
-    pub name: String,
-    pub open: bool,
-    pub id: u64,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct File {
     pub path: PathBuf,
@@ -139,6 +133,15 @@ impl File {
     pub fn get_name(&self) -> Option<String> {
         Some(self.path.file_name()?.to_str()?.to_string())
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct Tree {
+    pub nodes: Vec<Tree>,
+    pub files: Vec<File>,
+    pub name: String,
+    pub open: bool,
+    pub id: u64,
 }
 
 impl Tree {
@@ -196,6 +199,7 @@ impl Tree {
             open: true,
             id,
         };
+
         tree.add(path, depth + 1, id + 1);
         self.nodes.push(tree);
     }
