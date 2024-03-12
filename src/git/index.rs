@@ -8,6 +8,8 @@ use anyhow::{anyhow, Context, Result};
 use chrono::NaiveDateTime;
 use flate2::read::ZlibDecoder;
 
+use crate::git::hash;
+
 #[derive(Debug, Clone)]
 pub enum Version {
     Two,
@@ -173,7 +175,7 @@ fn parse_index_entry(
 
     let mut hash = [0u8; 20];
     cursor.read_exact(&mut hash)?;
-    let hash: String = hash.iter().map(|b| format!("{:02x}", b)).collect();
+    let hash = hash::from_bytes(&hash);
 
     let blob = parse_blob(get_object(&repo.join(".git"), &hash).unwrap()).unwrap();
 

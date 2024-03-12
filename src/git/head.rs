@@ -8,6 +8,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::git::hash;
+
 const NUL: u8 = 0;
 const SPACE: u8 = 32;
 
@@ -185,7 +187,7 @@ fn parse_tree(repo: &PathBuf, bytes: &[u8]) -> Result<Vec<TreeEntry>> {
 
         let mut hash = [0u8; 20];
         cursor.read_exact(&mut hash)?;
-        let hash: String = hash.iter().map(|b| format!("{:02x}", b)).collect();
+        let hash = hash::from_bytes(&hash);
 
         if let Ok(blob) = parse_blob(get_object(repo, &hash)?) {
             let entry = TreeEntry::new(mode, name, hash, Vec::new(), Some(blob));
