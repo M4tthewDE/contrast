@@ -28,145 +28,146 @@ impl Stats {
     }
 }
 
-pub fn get_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
-    let commit = head::get_latest_commit(&project_path.join(".git/"))?;
-    let blobs = commit.get_blobs(project_path.to_path_buf());
+#[derive(Debug, Clone)]
+pub struct Diff {
+    pub file_diffs: Vec<FileDiff>,
+    pub stats: Stats,
+}
 
-    let mut diffs = Vec::new();
-    for result in WalkBuilder::new(project_path).hidden(false).build() {
-        let path = result?.into_path();
-        if path.starts_with(project_path.join(PathBuf::from(".git"))) {
-            continue;
+impl Diff {
+    fn new(file_diffs: Vec<FileDiff>) -> Diff {
+        let files_changed = file_diffs.len();
+        let mut total_insertions = 0;
+        let mut total_deletions = 0;
+        for diff in &file_diffs {
+            total_insertions += diff.stats.insertions;
+            total_deletions += diff.stats.deletions;
         }
 
-        if path.is_dir() {
-            continue;
+        Diff {
+            file_diffs,
+            stats: Stats::new(files_changed, total_insertions, total_deletions),
         }
+    }
 
-        if !blobs.contains_key(&path) {
-            let new = fs::read_to_string(path.clone()).unwrap_or_default();
+    pub fn unstaged(project_path: &Path) -> Result<Diff> {
+        let commit = head::get_latest_commit(&project_path.join(".git/"))?;
+        let blobs = commit.get_blobs(project_path.to_path_buf());
 
-            if new.is_empty() {
-                diffs.push(Diff::new(path, Vec::new(), DiffStats::default()));
+        let mut diffs = Vec::new();
+        for result in WalkBuilder::new(project_path).hidden(false).build() {
+            let path = result?.into_path();
+            if path.starts_with(project_path.join(PathBuf::from(".git"))) {
                 continue;
             }
 
-            if let Some(diff) = Diff::calculate(path, "", &new)? {
-                diffs.push(diff);
+            if path.is_dir() {
+                continue;
             }
-        }
-    }
 
-    for (path, blob) in blobs {
-        if let Ok(old) = String::from_utf8(blob) {
-            let new = fs::read_to_string(path.clone()).unwrap_or_default();
-            if let Some(diff) = Diff::calculate(path, &old, &new)? {
-                diffs.push(diff);
-            }
-        }
-    }
+            if !blobs.contains_key(&path) {
+                let new = fs::read_to_string(path.clone()).unwrap_or_default();
 
-    let staged_diffs = get_staged_diffs(project_path)?.0;
-    diffs.retain(|d| {
-        for staged_diff in &staged_diffs {
-            if d.file_name == staged_diff.file_name {
-                return false;
-            }
-        }
-
-        true
-    });
-
-    let files_changed = diffs.len();
-    let mut total_insertions = 0;
-    let mut total_deletions = 0;
-    for diff in &diffs {
-        total_insertions += diff.stats.insertions;
-        total_deletions += diff.stats.deletions;
-    }
-
-    Ok((
-        diffs,
-        Stats::new(files_changed, total_insertions, total_deletions),
-    ))
-}
-
-pub fn get_staged_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
-    let commit = head::get_latest_commit(&project_path.join(".git/"))?;
-    let blobs = commit.get_blobs(project_path.to_path_buf());
-    let index = IndexFile::new(project_path)?;
-
-    let mut diffs = Vec::new();
-    for entry in &index.index_entries {
-        let path = project_path.join(entry.name.clone());
-
-        if let Ok(new) = String::from_utf8(entry.blob.clone()) {
-            if let Some(old) = blobs.get(&path) {
-                if let Ok(old) = String::from_utf8(old.to_vec()) {
-                    if let Some(diff) = Diff::calculate(path.clone(), &old, &new)? {
-                        diffs.push(diff);
-                    }
-                }
-            } else {
                 if new.is_empty() {
-                    diffs.push(Diff::new(path, Vec::new(), DiffStats::default()));
+                    diffs.push(FileDiff::new(path, Vec::new(), DiffStats::default()));
                     continue;
                 }
 
-                if let Some(diff) = Diff::calculate(path, "", &new)? {
+                if let Some(diff) = FileDiff::calculate(path, "", &new)? {
                     diffs.push(diff);
                 }
             }
         }
-    }
 
-    for (path, blob) in blobs {
-        if let Ok(old) = String::from_utf8(blob) {
-            let mut deleted = true;
-            for entry in &index.index_entries {
-                if path == project_path.join(entry.name.clone()) {
-                    deleted = false;
-                }
-            }
-
-            if deleted {
-                if let Some(diff) = Diff::calculate(path.clone(), &old, "")? {
+        for (path, blob) in blobs {
+            if let Ok(old) = String::from_utf8(blob) {
+                let new = fs::read_to_string(path.clone()).unwrap_or_default();
+                if let Some(diff) = FileDiff::calculate(path, &old, &new)? {
                     diffs.push(diff);
                 }
             }
         }
+
+        let staged_diffs = Diff::staged(project_path)?.file_diffs;
+        diffs.retain(|d| {
+            for staged_diff in &staged_diffs {
+                if d.file_name == staged_diff.file_name {
+                    return false;
+                }
+            }
+
+            true
+        });
+
+        Ok(Diff::new(diffs))
     }
 
-    let files_changed = diffs.len();
-    let mut total_insertions = 0;
-    let mut total_deletions = 0;
-    for diff in &diffs {
-        total_insertions += diff.stats.insertions;
-        total_deletions += diff.stats.deletions;
-    }
+    pub fn staged(project_path: &Path) -> Result<Diff> {
+        let commit = head::get_latest_commit(&project_path.join(".git/"))?;
+        let blobs = commit.get_blobs(project_path.to_path_buf());
+        let index = IndexFile::new(project_path)?;
 
-    Ok((
-        diffs,
-        Stats::new(files_changed, total_insertions, total_deletions),
-    ))
+        let mut diffs = Vec::new();
+        for entry in &index.index_entries {
+            let path = project_path.join(entry.name.clone());
+
+            if let Ok(new) = String::from_utf8(entry.blob.clone()) {
+                if let Some(old) = blobs.get(&path) {
+                    if let Ok(old) = String::from_utf8(old.to_vec()) {
+                        if let Some(diff) = FileDiff::calculate(path.clone(), &old, &new)? {
+                            diffs.push(diff);
+                        }
+                    }
+                } else {
+                    if new.is_empty() {
+                        diffs.push(FileDiff::new(path, Vec::new(), DiffStats::default()));
+                        continue;
+                    }
+
+                    if let Some(diff) = FileDiff::calculate(path, "", &new)? {
+                        diffs.push(diff);
+                    }
+                }
+            }
+        }
+
+        for (path, blob) in blobs {
+            if let Ok(old) = String::from_utf8(blob) {
+                let mut deleted = true;
+                for entry in &index.index_entries {
+                    if path == project_path.join(entry.name.clone()) {
+                        deleted = false;
+                    }
+                }
+
+                if deleted {
+                    if let Some(diff) = FileDiff::calculate(path.clone(), &old, "")? {
+                        diffs.push(diff);
+                    }
+                }
+            }
+        }
+
+        Ok(Diff::new(diffs))
+    }
 }
 
 #[derive(Debug, Clone)]
-pub struct Diff {
+pub struct FileDiff {
     pub file_name: PathBuf,
     pub edits: Vec<DiffEdit>,
     pub stats: DiffStats,
 }
 
-impl Diff {
-    pub fn new(file_name: PathBuf, edits: Vec<DiffEdit>, stats: DiffStats) -> Diff {
-        Diff {
+impl FileDiff {
+    pub fn new(file_name: PathBuf, edits: Vec<DiffEdit>, stats: DiffStats) -> FileDiff {
+        FileDiff {
             file_name,
             edits,
             stats,
         }
     }
-    pub fn calculate(file_name: PathBuf, a: &str, b: &str) -> Result<Option<Diff>> {
+    pub fn calculate(file_name: PathBuf, a: &str, b: &str) -> Result<Option<FileDiff>> {
         if a == b {
             return Ok(None);
         }
@@ -186,7 +187,7 @@ impl Diff {
         let edits = Myers::new(a_lines, b_lines).diff()?;
         let stats = DiffStats::new(&edits);
 
-        Ok(Some(Diff::new(file_name, edits, stats)))
+        Ok(Some(FileDiff::new(file_name, edits, stats)))
     }
 }
 
@@ -308,10 +309,8 @@ impl DiffEdit {
 
 #[cfg(test)]
 mod tests {
-
+    use super::{DiffEdit, DiffLine, EditType, FileDiff};
     use std::path::PathBuf;
-
-    use super::{Diff, DiffEdit, DiffLine, EditType};
 
     #[test]
     fn test_calculate_diff() {
@@ -405,7 +404,7 @@ mod tests {
         let old = include_str!("../../tests/data/a");
         let new = include_str!("../../tests/data/b");
 
-        let diff = Diff::calculate(PathBuf::from("tests/data/a"), old, new)
+        let diff = FileDiff::calculate(PathBuf::from("tests/data/a"), old, new)
             .unwrap()
             .unwrap();
 

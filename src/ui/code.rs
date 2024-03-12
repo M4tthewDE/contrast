@@ -6,9 +6,9 @@ use egui::{
     Color32, Context, FontFamily, FontId, Layout, Response, TextEdit, TextFormat, Ui,
 };
 
-use crate::git::diff::Diff;
+use crate::git::diff::FileDiff;
 
-pub fn ui(ui: &mut Ui, diff: &Diff, start: usize, end: usize) -> Response {
+pub fn ui(ui: &mut Ui, diff: &FileDiff, start: usize, end: usize) -> Response {
     puffin::profile_function!("code::ui");
 
     let mut content = String::new();

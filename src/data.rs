@@ -8,7 +8,7 @@ use notify::RecommendedWatcher;
 use crate::git::{
     commit,
     commit::Commit,
-    diff::{self, Diff, Stats},
+    diff::{Diff, FileDiff, Stats},
 };
 
 #[derive(Default)]
@@ -34,13 +34,13 @@ pub struct AppData {
 }
 #[derive(Clone)]
 pub struct DiffData {
-    pub diffs: Vec<Diff>,
+    pub diffs: Vec<FileDiff>,
     pub stats: Stats,
     pub file_tree: Tree,
 }
 
 impl DiffData {
-    pub fn get_diff(&self, name: &PathBuf) -> Option<Diff> {
+    pub fn get_diff(&self, name: &PathBuf) -> Option<FileDiff> {
         for diff in &self.diffs {
             if diff.file_name == *name {
                 return Some(diff.clone());
@@ -73,22 +73,32 @@ pub enum AppDataCreationError {
 
 impl AppData {
     pub fn from_pathbuf(path: PathBuf) -> Result<AppData, AppDataCreationError> {
-        let (modified_diffs, modified_stats) =
-            diff::get_diffs(&path).map_err(|_| AppDataCreationError::Parsing)?;
+        let modified_diff = Diff::unstaged(&path).map_err(|_| AppDataCreationError::Parsing)?;
 
-        let (staged_diffs, staged_stats) =
-            diff::get_staged_diffs(&path).map_err(|_| AppDataCreationError::Parsing)?;
+        let staged_diff = Diff::staged(&path).map_err(|_| AppDataCreationError::Parsing)?;
 
         let modified_diff_data = DiffData {
-            diffs: modified_diffs.clone(),
-            stats: modified_stats,
-            file_tree: Tree::new(modified_diffs.iter().map(|d| d.file_name.clone()).collect()),
+            diffs: modified_diff.file_diffs.clone(),
+            stats: modified_diff.stats,
+            file_tree: Tree::new(
+                modified_diff
+                    .file_diffs
+                    .iter()
+                    .map(|d| d.file_name.clone())
+                    .collect(),
+            ),
         };
 
         let staged_diff_data = DiffData {
-            diffs: staged_diffs.clone(),
-            stats: staged_stats,
-            file_tree: Tree::new(staged_diffs.iter().map(|d| d.file_name.clone()).collect()),
+            diffs: staged_diff.file_diffs.clone(),
+            stats: staged_diff.stats,
+            file_tree: Tree::new(
+                staged_diff
+                    .file_diffs
+                    .iter()
+                    .map(|d| d.file_name.clone())
+                    .collect(),
+            ),
         };
 
         let project_path = path

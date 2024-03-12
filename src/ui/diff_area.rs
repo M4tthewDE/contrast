@@ -7,9 +7,9 @@ use egui::{
     Color32, Context, FontFamily, FontId, Response, RichText, ScrollArea, TextEdit, TextFormat, Ui,
 };
 
-use crate::{git::diff::Diff, ui::code};
+use crate::{git::diff::FileDiff, ui::code};
 
-pub fn ui(ui: &mut Ui, diff: &Diff) {
+pub fn ui(ui: &mut Ui, diff: &FileDiff) {
     puffin::profile_function!();
 
     ScrollArea::both()
@@ -25,7 +25,7 @@ pub fn ui(ui: &mut Ui, diff: &Diff) {
         });
 }
 
-pub fn line_numbers(ui: &mut Ui, diff: &Diff, start: usize, end: usize) -> Response {
+pub fn line_numbers(ui: &mut Ui, diff: &FileDiff, start: usize, end: usize) -> Response {
     puffin::profile_function!("line_numbers");
 
     let mut max_old_line = 1;
@@ -76,7 +76,7 @@ pub fn line_numbers(ui: &mut Ui, diff: &Diff, start: usize, end: usize) -> Respo
     .response
 }
 
-pub fn tag(ui: &mut Ui, diff: &Diff, start: usize, end: usize) {
+pub fn tag(ui: &mut Ui, diff: &FileDiff, start: usize, end: usize) {
     puffin::profile_function!("tag");
 
     let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
