@@ -1,7 +1,12 @@
-use std::io::{BufRead, Cursor, Read};
+use std::{
+    fs,
+    io::{BufRead, Cursor, Read},
+    path::Path,
+};
 
 use anyhow::{anyhow, Context, Result};
 use chrono::NaiveDateTime;
+use flate2::read::ZlibDecoder;
 
 #[derive(Debug, Clone)]
 pub enum Version {
@@ -30,7 +35,8 @@ pub struct IndexFile {
 }
 
 // https://git-scm.com/docs/index-format
-pub fn parse_index_file(bytes: &[u8]) -> Result<IndexFile> {
+pub fn parse_index_file(repo: &Path) -> Result<IndexFile> {
+    let bytes = fs::read(repo.join(".git/index"))?;
     let mut cursor = Cursor::new(bytes);
     let mut signature = [0u8; 4];
     cursor.read_exact(&mut signature)?;
@@ -50,7 +56,7 @@ pub fn parse_index_file(bytes: &[u8]) -> Result<IndexFile> {
 
     let mut index_entries = Vec::new();
     for _ in 0..index_entry_num {
-        let index_entry = parse_index_entry(&mut cursor, &version)?;
+        let index_entry = parse_index_entry(&mut cursor, &version, repo)?;
         index_entries.push(index_entry);
     }
 
@@ -93,6 +99,8 @@ pub struct IndexEntry {
     pub uid: u32,
     pub gid: u32,
     pub file_size: u32,
+    pub hash: String,
+    pub blob: Vec<u8>,
     pub assume_valid: bool,
     pub extended: bool,
     pub stage: u16,
@@ -100,7 +108,11 @@ pub struct IndexEntry {
     pub name: String,
 }
 
-fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: &Version) -> Result<IndexEntry> {
+fn parse_index_entry(
+    cursor: &mut Cursor<Vec<u8>>,
+    version: &Version,
+    repo: &Path,
+) -> Result<IndexEntry> {
     let mut metadata_changed_secs = [0u8; 4];
     cursor.read_exact(&mut metadata_changed_secs)?;
     let mut nanosec_fraction = [0u8; 4];
@@ -161,6 +173,9 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: &Version) -> Result<In
 
     let mut hash = [0u8; 20];
     cursor.read_exact(&mut hash)?;
+    let hash: String = hash.iter().map(|b| format!("{:02x}", b)).collect();
+
+    let blob = parse_blob(get_object(&repo.join(".git"), &hash).unwrap()).unwrap();
 
     let mut flags = [0u8; 2];
     cursor.read_exact(&mut flags)?;
@@ -204,6 +219,8 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: &Version) -> Result<In
         uid,
         gid,
         file_size,
+        hash,
+        blob,
         assume_valid,
         extended,
         stage,
@@ -212,16 +229,43 @@ fn parse_index_entry(cursor: &mut Cursor<&[u8]>, version: &Version) -> Result<In
     })
 }
 
+fn get_object(repo: &Path, hash: &str) -> Result<Vec<u8>> {
+    let path = repo.join("objects").join(&hash[0..2]).join(&hash[2..]);
+    let bytes = fs::read(path)?;
+    let mut decoder = ZlibDecoder::new(Cursor::new(bytes));
+    let mut bytes = Vec::new();
+    decoder.read_to_end(&mut bytes)?;
+    Ok(bytes)
+}
+
+fn parse_blob(bytes: Vec<u8>) -> Result<Vec<u8>> {
+    let mut cursor = Cursor::new(bytes);
+    let mut literal = [0u8; 4];
+    cursor.read_exact(&mut literal)?;
+    let literal = String::from_utf8(literal.to_vec())?;
+
+    if literal == "blob" {
+        let mut trash = Vec::new();
+        cursor.read_until(0, &mut trash)?;
+        let mut blob = Vec::new();
+        cursor.read_to_end(&mut blob)?;
+        Ok(blob)
+    } else {
+        Err(anyhow!("not a blob"))
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use crate::git::index::{ModeType, Version};
 
     use super::parse_index_file;
 
     #[test]
     fn test_parse_index() {
-        let bytes = include_bytes!("../../tests/data/index");
-        let index_file = parse_index_file(bytes).unwrap();
+        let index_file = parse_index_file(&PathBuf::from("./tests/data/index".to_owned())).unwrap();
 
         assert!(matches!(index_file.version, Version::Two));
         assert_eq!(index_file.index_entries.len(), 26);

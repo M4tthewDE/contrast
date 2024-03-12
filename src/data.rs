@@ -77,7 +77,7 @@ impl AppData {
             diff::get_diffs(&path).map_err(|_| AppDataCreationError::Parsing)?;
 
         let (staged_diffs, staged_stats) =
-            diff::get_diffs(&path).map_err(|_| AppDataCreationError::Parsing)?;
+            diff::get_staged_diffs(&path).map_err(|_| AppDataCreationError::Parsing)?;
 
         let modified_diff_data = DiffData {
             diffs: modified_diffs.clone(),

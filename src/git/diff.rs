@@ -7,7 +7,7 @@ use std::{
 use anyhow::Result;
 use ignore::WalkBuilder;
 
-use crate::git::head;
+use crate::git::{head, index};
 
 use super::myers::Myers;
 
@@ -65,6 +65,50 @@ pub fn get_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
             let new = fs::read_to_string(path.clone()).unwrap_or_default();
             if let Some(diff) = Diff::calculate(path, &old, &new)? {
                 diffs.push(diff);
+            }
+        }
+    }
+
+    let staged_diffs = get_staged_diffs(project_path)?.0;
+    diffs.retain(|d| {
+        for staged_diff in &staged_diffs {
+            if d.file_name == staged_diff.file_name {
+                return false;
+            }
+        }
+
+        true
+    });
+
+    let files_changed = diffs.len();
+    let mut total_insertions = 0;
+    let mut total_deletions = 0;
+    for diff in &diffs {
+        total_insertions += diff.stats.insertions;
+        total_deletions += diff.stats.deletions;
+    }
+
+    Ok((
+        diffs,
+        Stats::new(files_changed, total_insertions, total_deletions),
+    ))
+}
+pub fn get_staged_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
+    let commit = head::get_latest_commit(&project_path.join(".git/"))?;
+    let blobs = commit.get_blobs(project_path.to_path_buf());
+    let index = index::parse_index_file(project_path)?;
+
+    let mut diffs = Vec::new();
+    for entry in index.index_entries {
+        let path = project_path.join(entry.name);
+
+        if let Some(old) = blobs.get(&path) {
+            if let Ok(old) = String::from_utf8(old.to_vec()) {
+                if let Ok(new) = String::from_utf8(entry.blob) {
+                    if let Some(diff) = Diff::calculate(path.clone(), &old, &new)? {
+                        diffs.push(diff);
+                    }
+                }
             }
         }
     }
@@ -238,7 +282,7 @@ mod tests {
 
     use std::path::PathBuf;
 
-    use super::{calculate_diff, DiffEdit, DiffLine, EditType};
+    use super::{Diff, DiffEdit, DiffLine, EditType};
 
     #[test]
     fn test_calculate_diff() {
@@ -332,7 +376,7 @@ mod tests {
         let old = include_str!("../../tests/data/a");
         let new = include_str!("../../tests/data/b");
 
-        let diff = calculate_diff(PathBuf::from("tests/data/a"), old, new)
+        let diff = Diff::calculate(PathBuf::from("tests/data/a"), old, new)
             .unwrap()
             .unwrap();
 
