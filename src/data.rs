@@ -104,11 +104,12 @@ impl AppData {
             ),
         );
 
+        let commits = commit::get_log(&path)?;
+
         let project_path = path
             .to_str()
             .ok_or(anyhow!("invalid path {:?}", path))?
             .to_owned();
-        let commits = commit::get_log(&project_path)?;
 
         Ok(AppData {
             project_path,

@@ -14,6 +14,21 @@ use super::get_object;
 const NUL: u8 = 0;
 const SPACE: u8 = 32;
 
+pub fn get_hash(repo: &PathBuf) -> Result<String> {
+    let content = fs::read_to_string(repo.join("HEAD"))?;
+    let head = content
+        .strip_prefix("ref: refs/heads/")
+        .and_then(|h| h.strip_suffix('\n'))
+        .map(|h| h.to_owned())
+        .ok_or(anyhow!("error parsing HEAD"))?;
+
+    let raw_hash = fs::read_to_string(repo.join("refs/heads").join(head.clone()))?;
+    raw_hash
+        .strip_suffix('\n')
+        .map(|h| h.to_owned())
+        .ok_or(anyhow!("error parsing refs/heads/{}", head))
+}
+
 #[derive(Debug)]
 pub struct Head {
     tree: Vec<TreeEntry>,
@@ -21,18 +36,7 @@ pub struct Head {
 
 impl Head {
     pub fn new(repo: &PathBuf) -> Result<Head> {
-        let content = fs::read_to_string(repo.join("HEAD"))?;
-        let head = content
-            .strip_prefix("ref: refs/heads/")
-            .and_then(|h| h.strip_suffix('\n'))
-            .map(|h| h.to_owned())
-            .ok_or(anyhow!("error parsing HEAD"))?;
-
-        let raw_hash = fs::read_to_string(repo.join("refs/heads").join(head.clone()))?;
-        let hash = raw_hash
-            .strip_suffix('\n')
-            .ok_or(anyhow!("error parsing refs/heads/{}", head))?;
-
+        let hash = get_hash(repo)?;
         let commit_path = repo.join("objects").join(&hash[0..2]).join(&hash[2..]);
 
         let bytes = fs::read(commit_path)?;
