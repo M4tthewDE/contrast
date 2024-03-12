@@ -1,3 +1,4 @@
+use crate::git;
 use anyhow::{anyhow, Result};
 use flate2::read::ZlibDecoder;
 use std::{
@@ -8,7 +9,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::git::hash;
+use super::get_object;
 
 const NUL: u8 = 0;
 const SPACE: u8 = 32;
@@ -69,15 +70,6 @@ fn get_commit(repo: &PathBuf, hash: &str) -> Result<Commit> {
         hash: commit_hash.to_string(),
         tree,
     })
-}
-
-fn get_object(repo: &Path, hash: &str) -> Result<Vec<u8>> {
-    let path = repo.join("objects").join(&hash[0..2]).join(&hash[2..]);
-    let bytes = fs::read(path)?;
-    let mut decoder = ZlibDecoder::new(Cursor::new(bytes));
-    let mut bytes = Vec::new();
-    decoder.read_to_end(&mut bytes)?;
-    Ok(bytes)
 }
 
 #[derive(Debug)]
@@ -187,9 +179,9 @@ fn parse_tree(repo: &PathBuf, bytes: &[u8]) -> Result<Vec<TreeEntry>> {
 
         let mut hash = [0u8; 20];
         cursor.read_exact(&mut hash)?;
-        let hash = hash::from_bytes(&hash);
+        let hash = git::get_hash(&hash);
 
-        if let Ok(blob) = parse_blob(get_object(repo, &hash)?) {
+        if let Ok(blob) = git::parse_blob(get_object(repo, &hash)?) {
             let entry = TreeEntry::new(mode, name, hash, Vec::new(), Some(blob));
             entries.push(entry);
         } else {
@@ -204,21 +196,4 @@ fn parse_tree(repo: &PathBuf, bytes: &[u8]) -> Result<Vec<TreeEntry>> {
     }
 
     Ok(entries)
-}
-
-fn parse_blob(bytes: Vec<u8>) -> Result<Vec<u8>> {
-    let mut cursor = Cursor::new(bytes);
-    let mut literal = [0u8; 4];
-    cursor.read_exact(&mut literal)?;
-    let literal = String::from_utf8(literal.to_vec())?;
-
-    if literal == "blob" {
-        let mut trash = Vec::new();
-        cursor.read_until(0, &mut trash)?;
-        let mut blob = Vec::new();
-        cursor.read_to_end(&mut blob)?;
-        Ok(blob)
-    } else {
-        Err(anyhow!("not a blob"))
-    }
 }

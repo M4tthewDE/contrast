@@ -6,9 +6,8 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use chrono::NaiveDateTime;
-use flate2::read::ZlibDecoder;
 
-use crate::git::hash;
+use crate::git;
 
 #[derive(Debug, Clone)]
 pub enum Version {
@@ -175,9 +174,9 @@ fn parse_index_entry(
 
     let mut hash = [0u8; 20];
     cursor.read_exact(&mut hash)?;
-    let hash = hash::from_bytes(&hash);
+    let hash = git::get_hash(&hash);
 
-    let blob = parse_blob(get_object(&repo.join(".git"), &hash).unwrap()).unwrap();
+    let blob = git::parse_blob(git::get_object(&repo.join(".git"), &hash).unwrap()).unwrap();
 
     let mut flags = [0u8; 2];
     cursor.read_exact(&mut flags)?;
@@ -229,30 +228,4 @@ fn parse_index_entry(
         name_length,
         name,
     })
-}
-
-fn get_object(repo: &Path, hash: &str) -> Result<Vec<u8>> {
-    let path = repo.join("objects").join(&hash[0..2]).join(&hash[2..]);
-    let bytes = fs::read(path)?;
-    let mut decoder = ZlibDecoder::new(Cursor::new(bytes));
-    let mut bytes = Vec::new();
-    decoder.read_to_end(&mut bytes)?;
-    Ok(bytes)
-}
-
-fn parse_blob(bytes: Vec<u8>) -> Result<Vec<u8>> {
-    let mut cursor = Cursor::new(bytes);
-    let mut literal = [0u8; 4];
-    cursor.read_exact(&mut literal)?;
-    let literal = String::from_utf8(literal.to_vec())?;
-
-    if literal == "blob" {
-        let mut trash = Vec::new();
-        cursor.read_until(0, &mut trash)?;
-        let mut blob = Vec::new();
-        cursor.read_to_end(&mut blob)?;
-        Ok(blob)
-    } else {
-        Err(anyhow!("not a blob"))
-    }
 }
