@@ -170,8 +170,19 @@ impl Diff {
         if a == b {
             return Ok(None);
         }
-        let a_lines = get_lines(a);
-        let b_lines = get_lines(b);
+
+        let a_lines: Vec<DiffLine> = a
+            .lines()
+            .enumerate()
+            .map(|(i, line)| DiffLine::new(i + 1, line.to_string()))
+            .collect();
+
+        let b_lines: Vec<DiffLine> = b
+            .lines()
+            .enumerate()
+            .map(|(i, line)| DiffLine::new(i + 1, line.to_string()))
+            .collect();
+
         let edits = Myers::new(a_lines, b_lines).diff()?;
         let stats = DiffStats::new(&edits);
 
@@ -179,22 +190,16 @@ impl Diff {
     }
 }
 
-fn get_lines(content: &str) -> Vec<DiffLine> {
-    let mut lines = Vec::new();
-    for (i, line) in content.lines().enumerate() {
-        lines.push(DiffLine {
-            number: i + 1,
-            text: line.to_string(),
-        })
-    }
-
-    lines
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct DiffLine {
     pub number: usize,
     pub text: String,
+}
+
+impl DiffLine {
+    fn new(number: usize, text: String) -> DiffLine {
+        DiffLine { number, text }
+    }
 }
 
 impl Display for DiffLine {
