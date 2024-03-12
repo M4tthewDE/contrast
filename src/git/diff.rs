@@ -7,9 +7,7 @@ use std::{
 use anyhow::Result;
 use ignore::WalkBuilder;
 
-use crate::git::head;
-
-use super::{index::IndexFile, myers::Myers};
+use super::{head::Head, index::IndexFile, myers::Myers};
 
 #[derive(Debug, Clone)]
 pub struct Stats {
@@ -51,7 +49,7 @@ impl Diff {
     }
 
     pub fn unstaged(project_path: &Path) -> Result<Diff> {
-        let commit = head::get_latest_commit(&project_path.join(".git/"))?;
+        let commit = Head::new(&project_path.join(".git/"))?;
         let blobs = commit.get_blobs(project_path.to_path_buf());
 
         let mut diffs = Vec::new();
@@ -103,7 +101,7 @@ impl Diff {
     }
 
     pub fn staged(project_path: &Path) -> Result<Diff> {
-        let commit = head::get_latest_commit(&project_path.join(".git/"))?;
+        let commit = Head::new(&project_path.join(".git/"))?;
         let blobs = commit.get_blobs(project_path.to_path_buf());
         let index = IndexFile::new(project_path)?;
 

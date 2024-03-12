@@ -6,7 +6,7 @@ use std::{
     fmt::{self, Display},
     fs,
     io::{BufRead, Cursor, Read},
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 use super::get_object;
@@ -14,22 +14,43 @@ use super::get_object;
 const NUL: u8 = 0;
 const SPACE: u8 = 32;
 
-fn get_head(repo: &Path) -> Result<String> {
-    let content = fs::read_to_string(repo.join("HEAD"))?;
-    content
-        .strip_prefix("ref: refs/heads/")
-        .and_then(|h| h.strip_suffix('\n'))
-        .map(|h| h.to_owned())
-        .ok_or(anyhow!("error parsing HEAD"))
-}
-
 #[derive(Debug)]
-pub struct Commit {
-    pub hash: String,
+pub struct Head {
     tree: Vec<TreeEntry>,
 }
 
-impl Commit {
+impl Head {
+    pub fn new(repo: &PathBuf) -> Result<Head> {
+        let content = fs::read_to_string(repo.join("HEAD"))?;
+        let head = content
+            .strip_prefix("ref: refs/heads/")
+            .and_then(|h| h.strip_suffix('\n'))
+            .map(|h| h.to_owned())
+            .ok_or(anyhow!("error parsing HEAD"))?;
+
+        let raw_hash = fs::read_to_string(repo.join("refs/heads").join(head.clone()))?;
+        let hash = raw_hash
+            .strip_suffix('\n')
+            .ok_or(anyhow!("error parsing refs/heads/{}", head))?;
+
+        let commit_path = repo.join("objects").join(&hash[0..2]).join(&hash[2..]);
+
+        let bytes = fs::read(commit_path)?;
+        let mut decoder = ZlibDecoder::new(Cursor::new(bytes));
+        let mut commit = String::new();
+        decoder.read_to_string(&mut commit)?;
+
+        let commit_hash = commit
+            .split(' ')
+            .nth(2)
+            .and_then(|t| t.strip_suffix("\nparent"))
+            .ok_or(anyhow!("error parsing commit"))?;
+
+        let tree = parse_tree(repo, &get_object(repo, commit_hash)?)?;
+
+        Ok(Head { tree })
+    }
+
     pub fn get_blobs(&self, path: PathBuf) -> HashMap<PathBuf, Vec<u8>> {
         let mut blobs = HashMap::new();
         for entry in &self.tree {
@@ -38,38 +59,6 @@ impl Commit {
 
         blobs
     }
-}
-
-pub fn get_latest_commit(repo: &PathBuf) -> Result<Commit> {
-    let head = get_head(repo)?;
-    let raw_hash = fs::read_to_string(repo.join("refs/heads").join(head.clone()))?;
-    let hash = raw_hash
-        .strip_suffix('\n')
-        .ok_or(anyhow!("error parsing refs/heads/{}", head))?;
-
-    get_commit(repo, hash)
-}
-
-fn get_commit(repo: &PathBuf, hash: &str) -> Result<Commit> {
-    let commit_path = repo.join("objects").join(&hash[0..2]).join(&hash[2..]);
-
-    let bytes = fs::read(commit_path)?;
-    let mut decoder = ZlibDecoder::new(Cursor::new(bytes));
-    let mut commit = String::new();
-    decoder.read_to_string(&mut commit)?;
-
-    let commit_hash = commit
-        .split(' ')
-        .nth(2)
-        .and_then(|t| t.strip_suffix("\nparent"))
-        .ok_or(anyhow!("error parsing commit"))?;
-
-    let tree = parse_tree(repo, &get_object(repo, commit_hash)?)?;
-
-    Ok(Commit {
-        hash: commit_hash.to_string(),
-        tree,
-    })
 }
 
 #[derive(Debug)]
