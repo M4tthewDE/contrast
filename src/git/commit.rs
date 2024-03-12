@@ -73,8 +73,15 @@ impl Commit {
         cursor.read_until(NEWLINE, &mut author)?;
         author.remove(author.len() - 1);
         let author = String::from_utf8(author)?;
-        let author = Author::new(&author);
+        let author = Author::new(&author)?;
         dbg!(&author);
+
+        let mut commiter = Vec::new();
+        cursor.read_until(NEWLINE, &mut commiter)?;
+        commiter.remove(commiter.len() - 1);
+        let commiter = String::from_utf8(commiter)?;
+        let commiter = Author::new(&commiter)?;
+        dbg!(&commiter);
 
         todo!();
     }
