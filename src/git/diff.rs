@@ -100,10 +100,10 @@ pub fn get_staged_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
     let index = index::parse_index_file(project_path)?;
 
     let mut diffs = Vec::new();
-    for entry in index.index_entries {
-        let path = project_path.join(entry.name);
+    for entry in &index.index_entries {
+        let path = project_path.join(entry.name.clone());
 
-        if let Ok(new) = String::from_utf8(entry.blob) {
+        if let Ok(new) = String::from_utf8(entry.blob.clone()) {
             if let Some(old) = blobs.get(&path) {
                 if let Ok(old) = String::from_utf8(old.to_vec()) {
                     if let Some(diff) = Diff::calculate(path.clone(), &old, &new)? {
@@ -117,6 +117,23 @@ pub fn get_staged_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
                 }
 
                 if let Some(diff) = Diff::calculate(path, "", &new)? {
+                    diffs.push(diff);
+                }
+            }
+        }
+    }
+
+    for (path, blob) in blobs {
+        if let Ok(old) = String::from_utf8(blob) {
+            let mut deleted = true;
+            for entry in &index.index_entries {
+                if path == project_path.join(entry.name.clone()) {
+                    deleted = false;
+                }
+            }
+
+            if deleted {
+                if let Some(diff) = Diff::calculate(path.clone(), &old, "")? {
                     diffs.push(diff);
                 }
             }
