@@ -1,6 +1,9 @@
 use crate::git::diff::{DiffEdit, DiffLine, EditType};
 use anyhow::{anyhow, Context, Result};
 
+// Heavily inspired by:
+// https://blog.jcoglan.com/2017/02/12/the-myers-diff-algorithm-part-1/
+
 pub struct Myers {
     a: Vec<DiffLine>,
     b: Vec<DiffLine>,

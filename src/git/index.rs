@@ -35,36 +35,40 @@ pub struct IndexFile {
     pub index_entries: Vec<IndexEntry>,
 }
 
-// https://git-scm.com/docs/index-format
-pub fn parse_index_file(repo: &Path) -> Result<IndexFile> {
-    let bytes = fs::read(repo.join(".git/index"))?;
-    let mut cursor = Cursor::new(bytes);
-    let mut signature = [0u8; 4];
-    cursor.read_exact(&mut signature)?;
-    if signature != [68, 73, 82, 67] {
-        return Err(anyhow!("Invalid signature: {:?}", signature));
+impl IndexFile {
+    // https://git-scm.com/docs/index-format
+    pub fn new(repo: &Path) -> Result<IndexFile> {
+        let bytes = fs::read(repo.join(".git/index"))?;
+        let mut cursor = Cursor::new(bytes);
+        let mut signature = [0u8; 4];
+        cursor.read_exact(&mut signature)?;
+        if signature != [68, 73, 82, 67] {
+            return Err(anyhow!("Invalid signature: {:?}", signature));
+        }
+
+        let mut version = [0u8; 4];
+        cursor.read_exact(&mut version)?;
+        let version = Version::try_from(u32::from_be_bytes(version))?;
+
+        if !matches!(version, Version::Two) {
+            return Err(anyhow!("Can't support version {:?} index file", version));
+        }
+
+        let mut index_entry_num = [0u8; 4];
+        cursor.read_exact(&mut index_entry_num)?;
+        let index_entry_num = u32::from_be_bytes(index_entry_num);
+
+        let mut index_entries = Vec::new();
+        for _ in 0..index_entry_num {
+            let index_entry = IndexEntry::new(&mut cursor, repo)?;
+            index_entries.push(index_entry);
+        }
+
+        Ok(IndexFile {
+            version,
+            index_entries,
+        })
     }
-
-    let mut version = [0u8; 4];
-    cursor.read_exact(&mut version)?;
-    let version = Version::try_from(u32::from_be_bytes(version))?;
-
-    assert!(matches!(version, Version::Two), "only supports version 2");
-
-    let mut index_entry_num = [0u8; 4];
-    cursor.read_exact(&mut index_entry_num)?;
-    let index_entry_num = u32::from_be_bytes(index_entry_num);
-
-    let mut index_entries = Vec::new();
-    for _ in 0..index_entry_num {
-        let index_entry = parse_index_entry(&mut cursor, &version, repo)?;
-        index_entries.push(index_entry);
-    }
-
-    Ok(IndexFile {
-        version,
-        index_entries,
-    })
 }
 
 #[derive(Debug)]
@@ -109,123 +113,123 @@ pub struct IndexEntry {
     pub name: String,
 }
 
-fn parse_index_entry(
-    cursor: &mut Cursor<Vec<u8>>,
-    version: &Version,
-    repo: &Path,
-) -> Result<IndexEntry> {
-    let mut metadata_changed_secs = [0u8; 4];
-    cursor.read_exact(&mut metadata_changed_secs)?;
-    let mut nanosec_fraction = [0u8; 4];
-    cursor.read_exact(&mut nanosec_fraction)?;
-    let metadata_changed = NaiveDateTime::from_timestamp_opt(
-        u32::from_be_bytes(metadata_changed_secs) as i64,
-        u32::from_be_bytes(nanosec_fraction),
-    )
-    .with_context(|| {
-        format!(
-            "Invalid timestamp {:?} {:?}",
-            metadata_changed_secs, nanosec_fraction
+impl IndexEntry {
+    fn new(cursor: &mut Cursor<Vec<u8>>, repo: &Path) -> Result<IndexEntry> {
+        let mut metadata_changed_secs = [0u8; 4];
+        cursor.read_exact(&mut metadata_changed_secs)?;
+        let mut nanosec_fraction = [0u8; 4];
+        cursor.read_exact(&mut nanosec_fraction)?;
+        let metadata_changed = NaiveDateTime::from_timestamp_opt(
+            u32::from_be_bytes(metadata_changed_secs) as i64,
+            u32::from_be_bytes(nanosec_fraction),
         )
-    })?;
+        .with_context(|| {
+            format!(
+                "Invalid timestamp {:?} {:?}",
+                metadata_changed_secs, nanosec_fraction
+            )
+        })?;
 
-    let mut data_changed_secs = [0u8; 4];
-    cursor.read_exact(&mut data_changed_secs)?;
-    let mut nanosec_fraction = [0u8; 4];
-    cursor.read_exact(&mut nanosec_fraction)?;
-    let data_changed = NaiveDateTime::from_timestamp_opt(
-        u32::from_be_bytes(data_changed_secs) as i64,
-        u32::from_be_bytes(nanosec_fraction),
-    )
-    .with_context(|| {
-        format!(
-            "Invalid timestamp {:?} {:?}",
-            metadata_changed_secs, nanosec_fraction
+        let mut data_changed_secs = [0u8; 4];
+        cursor.read_exact(&mut data_changed_secs)?;
+        let mut nanosec_fraction = [0u8; 4];
+        cursor.read_exact(&mut nanosec_fraction)?;
+        let data_changed = NaiveDateTime::from_timestamp_opt(
+            u32::from_be_bytes(data_changed_secs) as i64,
+            u32::from_be_bytes(nanosec_fraction),
         )
-    })?;
+        .with_context(|| {
+            format!(
+                "Invalid timestamp {:?} {:?}",
+                metadata_changed_secs, nanosec_fraction
+            )
+        })?;
 
-    let mut dev = [0u8; 4];
-    cursor.read_exact(&mut dev)?;
-    let dev = u32::from_be_bytes(dev);
+        let mut dev = [0u8; 4];
+        cursor.read_exact(&mut dev)?;
+        let dev = u32::from_be_bytes(dev);
 
-    let mut ino = [0u8; 4];
-    cursor.read_exact(&mut ino)?;
-    let ino = u32::from_be_bytes(ino);
+        let mut ino = [0u8; 4];
+        cursor.read_exact(&mut ino)?;
+        let ino = u32::from_be_bytes(ino);
 
-    let mut mode = [0u8; 4];
-    cursor.read_exact(&mut mode)?;
-    let mode = u32::from_be_bytes(mode) & 65535;
-    let mode_type = ModeType::try_from(mode >> 12)?;
-    let user_permissions = (mode >> 6) & 7;
-    let group_permissions = (mode >> 3) & 7;
-    let other_permissions = mode & 7;
+        let mut mode = [0u8; 4];
+        cursor.read_exact(&mut mode)?;
+        let mode = u32::from_be_bytes(mode) & 65535;
+        let mode_type = ModeType::try_from(mode >> 12)?;
+        let user_permissions = (mode >> 6) & 7;
+        let group_permissions = (mode >> 3) & 7;
+        let other_permissions = mode & 7;
 
-    let mut uid = [0u8; 4];
-    cursor.read_exact(&mut uid)?;
-    let uid = u32::from_be_bytes(uid);
+        let mut uid = [0u8; 4];
+        cursor.read_exact(&mut uid)?;
+        let uid = u32::from_be_bytes(uid);
 
-    let mut gid = [0u8; 4];
-    cursor.read_exact(&mut gid)?;
-    let gid = u32::from_be_bytes(gid);
+        let mut gid = [0u8; 4];
+        cursor.read_exact(&mut gid)?;
+        let gid = u32::from_be_bytes(gid);
 
-    let mut file_size = [0u8; 4];
-    cursor.read_exact(&mut file_size)?;
-    let file_size = u32::from_be_bytes(file_size);
+        let mut file_size = [0u8; 4];
+        cursor.read_exact(&mut file_size)?;
+        let file_size = u32::from_be_bytes(file_size);
 
-    let mut hash = [0u8; 20];
-    cursor.read_exact(&mut hash)?;
-    let hash = git::get_hash(&hash);
+        let mut hash = [0u8; 20];
+        cursor.read_exact(&mut hash)?;
+        let hash = git::get_hash(&hash);
 
-    let blob = git::parse_blob(git::get_object(&repo.join(".git"), &hash).unwrap()).unwrap();
+        let blob = git::parse_blob(git::get_object(&repo.join(".git"), &hash).unwrap()).unwrap();
 
-    let mut flags = [0u8; 2];
-    cursor.read_exact(&mut flags)?;
-    let flags = u16::from_be_bytes(flags);
+        let mut flags = [0u8; 2];
+        cursor.read_exact(&mut flags)?;
+        let flags = u16::from_be_bytes(flags);
 
-    let assume_valid = flags >> 15 != 0;
+        let assume_valid = flags >> 15 != 0;
+        let extended = flags >> 14 != 0;
+        let stage = (flags >> 13) & 12;
+        let name_length = flags & 4095;
 
-    let extended = flags >> 14 != 0;
-    if matches!(version, Version::Two) {
-        assert!(!extended)
-    }
+        let mut name = Vec::new();
+        let read_name_length = cursor.read_until(0u8, &mut name)?;
 
-    let stage = (flags >> 13) & 12;
-    let name_length = flags & 4095;
-
-    let mut name = Vec::new();
-    let read_name_length = cursor.read_until(0u8, &mut name)?;
-    assert_eq!(read_name_length - 1, name_length.into());
-    name.remove(name.len() - 1);
-
-    let name = String::from_utf8(name)?;
-
-    loop {
-        let mut buf = [0u8; 1];
-        cursor.read_exact(&mut buf)?;
-        if buf[0] != 0u8 {
-            cursor.set_position(cursor.position() - 1);
-            break;
+        if read_name_length - 1 != name_length.into() {
+            return Err(anyhow!(
+                "Read name length does not match real name length: {} {}",
+                read_name_length,
+                name_length
+            ));
         }
-    }
 
-    Ok(IndexEntry {
-        metadata_changed,
-        data_changed,
-        dev,
-        ino,
-        mode_type,
-        user_permissions,
-        group_permissions,
-        other_permissions,
-        uid,
-        gid,
-        file_size,
-        hash,
-        blob,
-        assume_valid,
-        extended,
-        stage,
-        name_length,
-        name,
-    })
+        name.remove(name.len() - 1);
+
+        let name = String::from_utf8(name)?;
+        loop {
+            let mut buf = [0u8; 1];
+            cursor.read_exact(&mut buf)?;
+            if buf[0] != 0u8 {
+                cursor.set_position(cursor.position() - 1);
+                break;
+            }
+        }
+
+        Ok(IndexEntry {
+            metadata_changed,
+            data_changed,
+            dev,
+            ino,
+            mode_type,
+            user_permissions,
+            group_permissions,
+            other_permissions,
+            uid,
+            gid,
+            file_size,
+            hash,
+            blob,
+            assume_valid,
+            extended,
+            stage,
+            name_length,
+            name,
+        })
+    }
 }

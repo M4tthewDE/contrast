@@ -7,12 +7,9 @@ use std::{
 use anyhow::Result;
 use ignore::WalkBuilder;
 
-use crate::git::{head, index};
+use crate::git::head;
 
-use super::myers::Myers;
-
-// Heavily inspired by:
-// https://blog.jcoglan.com/2017/02/12/the-myers-diff-algorithm-part-1/
+use super::{index::IndexFile, myers::Myers};
 
 #[derive(Debug, Clone)]
 pub struct Stats {
@@ -97,7 +94,7 @@ pub fn get_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
 pub fn get_staged_diffs(project_path: &Path) -> Result<(Vec<Diff>, Stats)> {
     let commit = head::get_latest_commit(&project_path.join(".git/"))?;
     let blobs = commit.get_blobs(project_path.to_path_buf());
-    let index = index::parse_index_file(project_path)?;
+    let index = IndexFile::new(project_path)?;
 
     let mut diffs = Vec::new();
     for entry in &index.index_entries {
