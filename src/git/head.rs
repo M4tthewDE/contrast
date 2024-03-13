@@ -36,7 +36,7 @@ pub struct Head {
 impl Head {
     pub fn new(repo: &PathBuf) -> Result<Head> {
         let hash = get_hash(repo)?;
-        let commit = object::get_string(repo, &hash)?;
+        let commit = String::from_utf8(object::get_bytes(repo, &hash)?)?;
         let commit_hash = commit
             .split(' ')
             .nth(2)
