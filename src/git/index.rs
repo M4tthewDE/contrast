@@ -9,6 +9,8 @@ use chrono::NaiveDateTime;
 
 use crate::git;
 
+use super::object;
+
 #[derive(Debug, Clone)]
 pub enum Version {
     Two,
@@ -177,7 +179,7 @@ impl IndexEntry {
         cursor.read_exact(&mut hash)?;
         let hash = git::get_hash(&hash);
 
-        let blob = git::parse_blob(git::get_object(&repo.join(".git"), &hash).unwrap()).unwrap();
+        let blob = git::parse_blob(object::get_bytes(&repo.join(".git"), &hash).unwrap()).unwrap();
 
         let mut flags = [0u8; 2];
         cursor.read_exact(&mut flags)?;

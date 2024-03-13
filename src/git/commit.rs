@@ -1,14 +1,14 @@
 use std::{
-    fs,
     io::{BufRead, Cursor, Read},
     path::Path,
 };
 
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, FixedOffset, NaiveDateTime};
-use flate2::read::ZlibDecoder;
 
 use crate::git::head;
+
+use super::object;
 
 #[derive(Debug, Clone)]
 pub struct Commit {
@@ -22,12 +22,7 @@ pub struct Commit {
 
 impl Commit {
     fn new(repo: &Path, hash: &str) -> Result<Commit> {
-        let commit_path = repo.join("objects").join(&hash[0..2]).join(&hash[2..]);
-
-        let bytes = fs::read(commit_path)?;
-        let mut decoder = ZlibDecoder::new(Cursor::new(bytes));
-        let mut bytes = Vec::new();
-        decoder.read_to_end(&mut bytes)?;
+        let bytes = object::get_bytes(repo, hash)?;
         let mut cursor = Cursor::new(bytes);
 
         let mut prefix = Vec::new();

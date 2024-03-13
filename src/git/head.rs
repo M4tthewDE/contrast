@@ -1,6 +1,5 @@
 use crate::git;
 use anyhow::{anyhow, Result};
-use flate2::read::ZlibDecoder;
 use std::{
     collections::HashMap,
     fmt::{self, Display},
@@ -9,7 +8,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use super::get_object;
+use super::object;
 
 const NUL: u8 = 0;
 const SPACE: u8 = 32;
@@ -37,20 +36,14 @@ pub struct Head {
 impl Head {
     pub fn new(repo: &PathBuf) -> Result<Head> {
         let hash = get_hash(repo)?;
-        let commit_path = repo.join("objects").join(&hash[0..2]).join(&hash[2..]);
-
-        let bytes = fs::read(commit_path)?;
-        let mut decoder = ZlibDecoder::new(Cursor::new(bytes));
-        let mut commit = String::new();
-        decoder.read_to_string(&mut commit)?;
-
+        let commit = object::get_string(repo, &hash)?;
         let commit_hash = commit
             .split(' ')
             .nth(2)
             .and_then(|t| t.strip_suffix("\nparent"))
             .ok_or(anyhow!("error parsing commit"))?;
 
-        let tree = parse_tree(repo, &get_object(repo, commit_hash)?)?;
+        let tree = parse_tree(repo, &object::get_bytes(repo, commit_hash)?)?;
 
         Ok(Head { tree })
     }
@@ -174,11 +167,11 @@ fn parse_tree(repo: &PathBuf, bytes: &[u8]) -> Result<Vec<TreeEntry>> {
         cursor.read_exact(&mut hash)?;
         let hash = git::get_hash(&hash);
 
-        if let Ok(blob) = git::parse_blob(get_object(repo, &hash)?) {
+        if let Ok(blob) = git::parse_blob(object::get_bytes(repo, &hash)?) {
             let entry = TreeEntry::new(mode, name, hash, Vec::new(), Some(blob));
             entries.push(entry);
         } else {
-            let children = parse_tree(repo, &get_object(repo, &hash)?)?;
+            let children = parse_tree(repo, &object::get_bytes(repo, &hash)?)?;
             let entry = TreeEntry::new(mode, name, hash, children, None);
             entries.push(entry);
         }

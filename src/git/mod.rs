@@ -1,22 +1,13 @@
 use anyhow::{anyhow, Result};
-use flate2::read::ZlibDecoder;
+use std::io::Cursor;
 use std::io::{BufRead, Read};
-use std::{fs, io::Cursor, path::Path};
 
 pub mod commit;
 pub mod diff;
 mod head;
 mod index;
 mod myers;
-
-fn get_object(repo: &Path, hash: &str) -> Result<Vec<u8>> {
-    let path = repo.join("objects").join(&hash[0..2]).join(&hash[2..]);
-    let bytes = fs::read(path)?;
-    let mut decoder = ZlibDecoder::new(Cursor::new(bytes));
-    let mut bytes = Vec::new();
-    decoder.read_to_end(&mut bytes)?;
-    Ok(bytes)
-}
+mod object;
 
 pub fn get_hash(bytes: &[u8]) -> String {
     let hash: String = bytes.iter().fold(String::new(), |mut acc, b| {
