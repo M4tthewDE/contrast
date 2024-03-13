@@ -3,9 +3,15 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use anyhow::{anyhow, Result};
+
 use notify::RecommendedWatcher;
 
-use crate::git::{self, commit, commit::Commit, stats::Stats, Diff};
+use crate::git::{
+    commit,
+    commit::Commit,
+    diff::{Diff, FileDiff, Stats},
+};
 
 #[derive(Default)]
 pub struct ControlData {
@@ -30,15 +36,22 @@ pub struct AppData {
 }
 #[derive(Clone)]
 pub struct DiffData {
-    pub diffs: Vec<Diff>,
+    pub diffs: Vec<FileDiff>,
     pub stats: Stats,
     pub file_tree: Tree,
 }
 
 impl DiffData {
-    pub fn get_diff(&self, name: &PathBuf) -> Option<Diff> {
+    fn new(diffs: Vec<FileDiff>, stats: Stats, file_tree: Tree) -> DiffData {
+        DiffData {
+            diffs,
+            stats,
+            file_tree,
+        }
+    }
+    pub fn get_diff(&self, name: &PathBuf) -> Option<FileDiff> {
         for diff in &self.diffs {
-            if diff.file_name() == *name {
+            if diff.file_name == *name {
                 return Some(diff.clone());
             }
         }
@@ -62,36 +75,41 @@ impl DiffType {
     }
 }
 
-pub enum AppDataCreationError {
-    Parsing,
-    Commits,
-}
-
 impl AppData {
-    pub fn from_pathbuf(path: PathBuf) -> Result<AppData, AppDataCreationError> {
+    pub fn from_pathbuf(path: PathBuf) -> Result<AppData> {
+        let modified_diff = Diff::unstaged(&path)?;
+        let staged_diff = Diff::staged(&path)?;
+
+        let modified_diff_data = DiffData::new(
+            modified_diff.file_diffs.clone(),
+            modified_diff.stats,
+            Tree::new(
+                modified_diff
+                    .file_diffs
+                    .iter()
+                    .map(|d| d.file_name.clone())
+                    .collect(),
+            ),
+        );
+
+        let staged_diff_data = DiffData::new(
+            staged_diff.file_diffs.clone(),
+            staged_diff.stats,
+            Tree::new(
+                staged_diff
+                    .file_diffs
+                    .iter()
+                    .map(|d| d.file_name.clone())
+                    .collect(),
+            ),
+        );
+
+        let commits = commit::get_log(&path)?;
+
         let project_path = path
             .to_str()
-            .ok_or(AppDataCreationError::Parsing)?
+            .ok_or(anyhow!("invalid path {:?}", path))?
             .to_owned();
-        let (modified_diffs, modified_stats) =
-            git::get_diffs(&project_path).map_err(|_| AppDataCreationError::Parsing)?;
-
-        let (staged_diffs, staged_stats) =
-            git::get_staged_diffs(&project_path).map_err(|_| AppDataCreationError::Parsing)?;
-
-        let modified_diff_data = DiffData {
-            diffs: modified_diffs.clone(),
-            stats: modified_stats,
-            file_tree: Tree::new(modified_diffs.iter().map(|d| d.file_name()).collect()),
-        };
-
-        let staged_diff_data = DiffData {
-            diffs: staged_diffs.clone(),
-            stats: staged_stats,
-            file_tree: Tree::new(staged_diffs.iter().map(|d| d.file_name()).collect()),
-        };
-
-        let commits = commit::get_log(&project_path).map_err(|_| AppDataCreationError::Commits)?;
 
         Ok(AppData {
             project_path,
@@ -107,15 +125,6 @@ pub enum Message {
     ShowError(String),
 }
 
-#[derive(Debug, Clone)]
-pub struct Tree {
-    pub nodes: Vec<Tree>,
-    pub files: Vec<File>,
-    pub name: String,
-    pub open: bool,
-    pub id: u64,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct File {
     pub path: PathBuf,
@@ -125,6 +134,15 @@ impl File {
     pub fn get_name(&self) -> Option<String> {
         Some(self.path.file_name()?.to_str()?.to_string())
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct Tree {
+    pub nodes: Vec<Tree>,
+    pub files: Vec<File>,
+    pub name: String,
+    pub open: bool,
+    pub id: u64,
 }
 
 impl Tree {
@@ -182,6 +200,7 @@ impl Tree {
             open: true,
             id,
         };
+
         tree.add(path, depth + 1, id + 1);
         self.nodes.push(tree);
     }
@@ -214,11 +233,11 @@ mod tests {
 
         assert_eq!(tree.id, 0);
         assert_eq!(tree.name, "");
-        assert_eq!(tree.open, true);
+        assert!(tree.open);
 
         assert_eq!(tree.nodes[0].id, 1);
         assert_eq!(tree.nodes[0].name, "src");
-        assert_eq!(tree.nodes[0].open, true);
+        assert!(tree.nodes[0].open);
         assert_eq!(
             tree.nodes[0].files,
             vec![
@@ -232,7 +251,7 @@ mod tests {
         );
         assert_eq!(tree.nodes[0].nodes[0].id, 2);
         assert_eq!(tree.nodes[0].nodes[0].name, "ui");
-        assert_eq!(tree.nodes[0].nodes[0].open, true);
+        assert!(tree.nodes[0].nodes[0].open);
         assert_eq!(
             tree.nodes[0].nodes[0].files,
             vec![File {

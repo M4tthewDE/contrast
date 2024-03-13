@@ -45,25 +45,20 @@ fn show_commit(ui: &mut Ui, commit: &Commit) {
 
     if ui
         .add(
-            Label::new(RichText::new(format!("commit {}", commit.id)).color(Color32::LIGHT_BLUE))
+            Label::new(RichText::new(commit.hash.to_string()).color(Color32::LIGHT_BLUE))
                 .sense(Sense::click()),
         )
         .on_hover_text_at_pointer("Click to copy id")
         .clicked()
     {
         ui.output_mut(|po| {
-            po.copied_text = commit.clone().id;
+            po.copied_text = commit.clone().hash;
         });
     }
 
-    ui.label(
-        RichText::new(format!(
-            "Author: {} <{}>",
-            commit.author.name, commit.author.email
-        ))
-        .color(Color32::WHITE),
-    );
-    ui.label(RichText::new(format!("Date: {}", commit.time)).color(Color32::WHITE));
+    ui.label(RichText::new(format!("Author: {}", commit.author.name)).color(Color32::WHITE));
+    ui.label(RichText::new(format!("Commiter: {}", commit.commiter.name)).color(Color32::WHITE));
+    ui.label(RichText::new(format!("Date: {}", commit.commiter.timestamp)).color(Color32::WHITE));
     ui.add_space(10.0);
     ui.horizontal(|ui| {
         ui.add_space(10.0);

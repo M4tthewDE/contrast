@@ -1,20 +1,91 @@
-use anyhow::Result;
-use chrono::NaiveDateTime;
-use git2::{Repository, Sort};
+use std::{
+    io::{BufRead, Cursor, Read},
+    path::Path,
+};
+
+use anyhow::{anyhow, Result};
+use chrono::{DateTime, FixedOffset, NaiveDateTime};
+
+use crate::git::head;
+
+use super::object;
 
 #[derive(Debug, Clone)]
 pub struct Commit {
-    pub id: String,
+    pub hash: String,
+    pub tree: String,
+    pub parents: Vec<String>,
     pub author: Author,
+    pub commiter: Author,
     pub message: String,
-    pub time: NaiveDateTime,
 }
 
 impl Commit {
+    fn new(repo: &Path, hash: &str) -> Result<Commit> {
+        let bytes = object::get_bytes(repo, hash)?;
+        let mut cursor = Cursor::new(bytes);
+
+        let mut prefix = Vec::new();
+        cursor.read_until(0, &mut prefix)?;
+        prefix.remove(prefix.len() - 1);
+
+        let prefix = String::from_utf8(prefix)?;
+        if !prefix.starts_with("commit") {
+            return Err(anyhow!("wrong prefix: {}", prefix));
+        }
+
+        let mut content = String::new();
+        cursor.read_to_string(&mut content)?;
+        let mut lines = content.lines();
+
+        let tree = lines
+            .next()
+            .and_then(|l| l.split(' ').nth(1))
+            .ok_or(anyhow!("no tree found"))?;
+
+        let parents = lines
+            .clone()
+            .take_while(|l| l.starts_with("parent"))
+            .map(|l| l.split(' ').nth(1))
+            .filter_map(|x| x.map(|s| s.to_string()))
+            .collect::<Vec<String>>();
+
+        let mut lines = lines.skip(parents.len());
+        let author = Author::new(
+            &lines
+                .next()
+                .ok_or(anyhow!("no author found"))?
+                .chars()
+                .skip(7)
+                .collect::<String>(),
+        )?;
+        let commiter = Author::new(
+            &lines
+                .next()
+                .ok_or(anyhow!("no author found"))?
+                .chars()
+                .skip(10)
+                .collect::<String>(),
+        )?;
+        let message = lines
+            .skip_while(|l| !l.is_empty())
+            .map(|l| l.to_string())
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        Ok(Commit {
+            hash: hash.to_string(),
+            tree: tree.to_string(),
+            parents,
+            author,
+            commiter,
+            message,
+        })
+    }
+
     pub fn contains(&self, search_string: &str) -> bool {
         let search_string = &search_string.to_lowercase();
         self.author.name.to_lowercase().contains(search_string)
-            || self.author.email.to_lowercase().contains(search_string)
             || self.message.to_lowercase().contains(search_string)
     }
 }
@@ -22,38 +93,48 @@ impl Commit {
 #[derive(Debug, Clone)]
 pub struct Author {
     pub name: String,
-    pub email: String,
+    pub timestamp: DateTime<FixedOffset>,
 }
 
-pub fn get_log(path: &String) -> Result<Vec<Commit>> {
-    let repo = Repository::open(path)?;
-    let mut revwalk = repo.revwalk()?;
-    revwalk.set_sorting(Sort::TIME)?;
-    revwalk.push_head()?;
+impl Author {
+    fn new(line: &str) -> Result<Author> {
+        let name = line.chars().take_while(|c| *c != '>').collect::<String>() + ">";
+        let binding = line.chars().skip(name.len() + 1).collect::<String>();
+        let mut parts = binding.split(' ');
+        let timestamp = parts
+            .next()
+            .ok_or(anyhow!("no timestamp found"))?
+            .parse::<i64>()?;
+        let timestamp = NaiveDateTime::from_timestamp_opt(timestamp, 0)
+            .ok_or(anyhow!("invalid timestamp: {}", timestamp))?;
+
+        let offset = parts.next().ok_or(anyhow!("no offset found"))?;
+        let offset_hours = offset[1..3].parse::<i32>().unwrap();
+        let offset_minutes = offset[3..].parse::<i32>().unwrap();
+        let offset = FixedOffset::east_opt(offset_hours * 3600 + offset_minutes * 60)
+            .ok_or(anyhow!("invalid offset"))?;
+        let timestamp: DateTime<FixedOffset> =
+            DateTime::from_naive_utc_and_offset(timestamp, offset);
+
+        Ok(Author { name, timestamp })
+    }
+}
+
+pub fn get_log(repo: &Path) -> Result<Vec<Commit>> {
+    let repo = repo.join(".git");
+    let hash = head::get_hash(&repo)?;
 
     let mut commits = Vec::new();
+    let mut parent = hash;
+    loop {
+        let commit = Commit::new(&repo, &parent).unwrap();
+        commits.push(commit.clone());
 
-    for id in revwalk {
-        let id = id?;
-        let commit = repo.find_commit(id)?;
-
-        let author = Author {
-            name: commit.author().name().unwrap_or("").to_owned(),
-            email: commit.author().email().unwrap_or("").to_owned(),
-        };
-
-        let commit = Commit {
-            id: id.to_string(),
-            author,
-            message: commit.message().unwrap_or("").to_owned(),
-            time: NaiveDateTime::from_timestamp_opt(
-                commit.time().seconds() + commit.time().offset_minutes() as i64 * 60,
-                0,
-            )
-            .unwrap_or_default(),
-        };
-
-        commits.push(commit);
+        if let Some(p) = &commit.parents.first() {
+            parent = p.to_string();
+        } else {
+            break;
+        }
     }
 
     Ok(commits)
