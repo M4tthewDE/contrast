@@ -6,7 +6,7 @@ use std::{
     fmt::{self, Display},
     fs,
     io::{BufRead, Cursor, Read},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use super::get_object;
@@ -14,7 +14,7 @@ use super::get_object;
 const NUL: u8 = 0;
 const SPACE: u8 = 32;
 
-pub fn get_hash(repo: &PathBuf) -> Result<String> {
+pub fn get_hash(repo: &Path) -> Result<String> {
     let content = fs::read_to_string(repo.join("HEAD"))?;
     let head = content
         .strip_prefix("ref: refs/heads/")
